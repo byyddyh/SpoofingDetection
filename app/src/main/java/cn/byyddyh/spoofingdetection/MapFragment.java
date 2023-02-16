@@ -202,9 +202,6 @@ public class MapFragment extends Fragment implements AMapLocationListener, Locat
     public void onLocationChanged(AMapLocation aMapLocation) {
         if (aMapLocation != null) {
             if (aMapLocation.getErrorCode() == 0) {
-                aMapLocation.setLatitude(MainActivity.mLatitude);
-                aMapLocation.setLongitude(MainActivity.mLongitude);
-
                 // 停止定位后，本地定位服务并不会被销毁
                 mLocationClient.stopLocation();
 

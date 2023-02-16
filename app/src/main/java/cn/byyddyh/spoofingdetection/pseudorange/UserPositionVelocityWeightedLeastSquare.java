@@ -36,7 +36,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-import cn.byyddyh.spoofingdetection.FileLogger;
+import cn.byyddyh.spoofingdetection.LogFragment;
 import cn.byyddyh.spoofingdetection.MainActivity;
 
 /**
@@ -146,7 +146,7 @@ class UserPositionVelocityWeightedLeastSquare {
    * @param pseudorangeResidualMeters The pseudorange residual corrected by subtracting expected
    *     pseudorange calculated with the use clock bias of the highest elevation satellites.          通过减去使用最高仰角卫星的时钟偏差计算的预期伪距来校正伪距残差。
    */
-  @SuppressLint("RestrictedApi")
+  @SuppressLint({"RestrictedApi", "LongLogTag"})
   public void calculateUserPositionVelocityLeastSquare(
       GpsNavMessageProto navMessageProto,
       List<GpsMeasurementWithRangeAndUncertainty> usefulSatellitesToReceiverMeasurements,
@@ -180,6 +180,22 @@ class UserPositionVelocityWeightedLeastSquare {
     SatellitesPositionPseudorangesResidualAndCovarianceMatrix satPosPseudorangeResidualAndWeight;
 
     boolean isFirstWLS = true;
+
+    // TODO 记录伪距的测量值
+    List<Double> receiverMeasurementPseudorangeMeters = new ArrayList<>();
+//    List<Double> receiverMeasurementPseudorangeUncertaintyMeters = new ArrayList<>();
+    for (int i = 0; i < usefulSatellitesToReceiverMeasurements.size(); i++) {
+      if (usefulSatellitesToReceiverMeasurements.get(i) != null) {
+        receiverMeasurementPseudorangeMeters.add(usefulSatellitesToReceiverMeasurements.get(i).pseudorangeMeters);
+      }
+//      receiverMeasurementPseudorangeUncertaintyMeters.add(mutableSmoothedSatellitesToReceiverMeasurements.get(i).pseudorangeUncertaintyMeters);
+    }
+    Log.d("GNSS pseudorange Meters", String.valueOf(receiverMeasurementPseudorangeMeters));
+//    Log.d("GNSS pseudorange Uncertainty Meters", String.valueOf(receiverMeasurementPseudorangeUncertaintyMeters));
+    if (LogFragment.writableFlag) {
+      LogFragment.fileLogger.storeListData("GNSS Measurement pseudorange Meters", receiverMeasurementPseudorangeMeters);
+//      LogFragment.fileLogger.storeListData("GNSS Measurement pseudorange Uncertainty Meters", receiverMeasurementPseudorangeUncertaintyMeters);
+    }
 
     do {
       // Calculate satellites' positions, measurement residuals per visible satellite and
@@ -237,6 +253,7 @@ class UserPositionVelocityWeightedLeastSquare {
       positionVelocitySolutionECEF[2] += deltaPositionMeters[2];
       positionVelocitySolutionECEF[3] += deltaPositionMeters[3];
       // Iterate applying corrections to the position solution until correction is below threshold
+      // 重复对位置解应用校正，直到校正低于阈值
       satPosPseudorangeResidualAndWeight =
           applyWeightedLeastSquare(
               navMessageProto,
@@ -253,6 +270,7 @@ class UserPositionVelocityWeightedLeastSquare {
       // We use the first WLS iteration results and correct them based on the ground truth position
       // and using a clock error computed from high elevation satellites. The first iteration is
       // used before satellite with high residuals being removed.
+      // 我们使用第一次WLS迭代结果，并根据地面真实位置和从高海拔卫星计算的时钟误差对其进行校正。在去除高残差的卫星之前使用第一次迭代。
       if (isFirstWLS && truthLocationForCorrectedResidualComputationEcef != null) {
         // Snapshot the information needed before high residual satellites are removed
         System.arraycopy(
@@ -304,6 +322,7 @@ class UserPositionVelocityWeightedLeastSquare {
     int measurementCount = 0;
 
     // Calculate range rates
+    List<double[]> satPosEcefData = new ArrayList<>();
     for (int i = 0; i < GpsNavigationMessageStore.MAX_NUMBER_OF_SATELLITES; i++) {
       if (mutableSmoothedSatellitesToReceiverMeasurements.get(i) != null) {
         GpsEphemerisProto ephemeridesProto = getEphemerisForSatellite(navMessageProto, i + 1);
@@ -339,6 +358,8 @@ class UserPositionVelocityWeightedLeastSquare {
                 * geometryMatrix.getEntry(measurementCount, 1)
                 + satPosECEFMetersVelocityMPS.velocityZMetersPerSec
                 * geometryMatrix.getEntry(measurementCount, 2)));
+
+        satPosEcefData.add(new double[]{satPosECEFMetersVelocityMPS.positionXMeters, satPosECEFMetersVelocityMPS.positionYMeters, satPosECEFMetersVelocityMPS.positionZMeters});
 
         deltaPseudoRangeRateMps.setEntry(measurementCount, 0,
             mutableSmoothedSatellitesToReceiverMeasurements.get(i).pseudorangeRateMps
@@ -383,6 +404,16 @@ class UserPositionVelocityWeightedLeastSquare {
         positionVelocityUncertaintyEnu,
         0 /*destination starting pos*/,
         6 /*length of elements*/);
+
+    // TODO 记录伪距的实际值 = 卫星 -> 接收机的位置
+    // 卫星位置satPosECEFMetersVelocityMPS.positionX(Y/Z)Meters     接收机位置
+    if (LogFragment.writableFlag) {
+      double[] receiverEcefData = Lla2EcefConverter.convertFromLlaToEcefMeters(new Ecef2LlaConverter.GeodeticLlaValues(MainActivity.llaData[0], MainActivity.llaData[1], MainActivity.llaData[2]));
+      LogFragment.fileLogger.storeArrayData("GNSS Receiver Ecef Data:", receiverEcefData);
+      for (int i = 0; i < satPosEcefData.size(); i++) {
+        LogFragment.fileLogger.storeArrayData("GNSS Satellite Position Ecef Data", satPosEcefData.get(i));
+      }
+    }
   }
 
   /**
@@ -718,7 +749,6 @@ class UserPositionVelocityWeightedLeastSquare {
 
         // Pseudorange residual (difference of measured to predicted pseudoranges)
         // 伪距残差（测量伪距与预测伪距之差）
-        // TODO 需要进行检测，判断残差的有效性，如果残差过大则使用估计值来代替测量值参与计算
         deltaPseudorangesMeters[satsCounter] =
             pseudorangeMeasurementMeters - predictedPseudorangeMeters;
 
@@ -727,9 +757,6 @@ class UserPositionVelocityWeightedLeastSquare {
         satsCounter++;
       }
     }
-
-    MainActivity.fileLogger.storeArrayData("deltaPseudorangesMeters:", deltaPseudorangesMeters);
-    Log.d("deltaPseudorangesMeters:", Arrays.toString(deltaPseudorangesMeters));
   }
 
   /** Searches ephemerides list for the ephemeris associated with current satellite in process */

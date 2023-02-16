@@ -27,6 +27,8 @@ import android.location.cts.nano.Ephemeris.GpsNavMessageProto;
 import android.location.cts.suplClient.SuplRrlpController;
 import android.util.Log;
 
+import com.google.firebase.crashlytics.buildtools.reloc.org.apache.commons.logging.LogFactory;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.net.UnknownHostException;
@@ -36,7 +38,6 @@ import java.util.Calendar;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-import cn.byyddyh.spoofingdetection.FileLogger;
 import cn.byyddyh.spoofingdetection.LogFragment;
 
 /**
@@ -56,8 +57,6 @@ public class PseudorangePositionVelocityFromRealTimeEvents {
 
   private static final String SUPL_SERVER_NAME = "supl.google.com";
   private static final int SUPL_SERVER_PORT = 7276;
-
-  private FileLogger fileLogger;
 
   private GpsNavMessageProto mHardwareGpsNavMessageProto = null;
 
@@ -212,6 +211,9 @@ public class PseudorangePositionVelocityFromRealTimeEvents {
     }
     Log.d("可用卫星数量", "numberOfUsefulSatellites:" + numberOfUsefulSatellites);
     LogFragment.logText("Data", "可用卫星数量\tnumberOfUsefulSatellites:" + numberOfUsefulSatellites);
+    if (LogFragment.writableFlag) {
+      LogFragment.fileLogger.storeArrayData("numberOfUsefulSatellites", new double[]{numberOfUsefulSatellites});
+    }
 
     if (numberOfUsefulSatellites >= MINIMUM_NUMBER_OF_USEFUL_SATELLITES) {
       // ignore first set of > 4 satellites as they often result in erroneous position
@@ -318,13 +320,13 @@ public class PseudorangePositionVelocityFromRealTimeEvents {
                 + " "
                 + mVelocitySolutionEnuMps[2]);
 
-        if (fileLogger != null) {
-          fileLogger.storeData("Latitude, Longitude, Altitude: ",
+        if (LogFragment.writableFlag) {
+          LogFragment.fileLogger.storeData("Latitude, Longitude, Altitude, ",
                   new double[]{mPositionSolutionLatLngDeg[0],
                           mPositionSolutionLatLngDeg[1],
                           mPositionSolutionLatLngDeg[2]});
 
-          fileLogger.storeData("Velocity ENU Mps: ",
+          LogFragment.fileLogger.storeData("Velocity ENU Mps, ",
                   new double[]{mVelocitySolutionEnuMps[0],
                           mVelocitySolutionEnuMps[1],
                           mVelocitySolutionEnuMps[2]});
@@ -525,15 +527,6 @@ public class PseudorangePositionVelocityFromRealTimeEvents {
     mReferenceLocation[0] = latE7;
     mReferenceLocation[1] = lngE7;
     mReferenceLocation[2] = altE7;
-  }
-
-  public void setFileLogger(FileLogger fileLogger) {
-    this.fileLogger = fileLogger;
-
-  }
-
-  public FileLogger getFileLogger() {
-    return fileLogger;
   }
 
   /**

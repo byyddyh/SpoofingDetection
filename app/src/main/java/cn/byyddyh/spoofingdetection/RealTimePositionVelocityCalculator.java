@@ -41,7 +41,6 @@ public class RealTimePositionVelocityCalculator {
     private boolean mAllowShowingRawResults = false;
     private MapFragment mMapFragment;
     private MainActivity mMainActivity;
-    private FileLogger fileLogger;
     private int[] mRgbColorArray = {
             Color.rgb(0x4a, 0x5f, 0x70),
             Color.rgb(0x7f, 0x82, 0x5f),
@@ -248,10 +247,6 @@ public class RealTimePositionVelocityCalculator {
 
     public void onGnssMeasurementsReceived(final GnssMeasurementsEvent event) {
         mAllowShowingRawResults = true;
-        if (mPseudorangePositionVelocityFromRealTimeEvents.getFileLogger() == null
-                && fileLogger != null) {
-            mPseudorangePositionVelocityFromRealTimeEvents.setFileLogger(fileLogger);
-        }
 
         final Runnable r =
                 new Runnable() {
@@ -482,9 +477,5 @@ public class RealTimePositionVelocityCalculator {
                 mPseudorangePositionVelocityFromRealTimeEvents
                         .setCorrectedResidualComputationTruthLocationLla(null);
         }
-    }
-
-    public void setFileLogger(FileLogger fileLogger) {
-        this.fileLogger = fileLogger;
     }
 }

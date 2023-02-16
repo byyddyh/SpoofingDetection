@@ -65,7 +65,6 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
     public static LocationManager mLocationmanager;
     private GNSSGpsEph nasaHourlyEphemeris;
     public static boolean ephemerisFlag = true;
-
     private GnssMeasurementsEvent.Callback gnssMeasurementsEventListener;
     private GnssNavigationMessage.Callback gnssNavigationMessageListener;
 
@@ -191,7 +190,6 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
 
         mapFragment.setPositionVelocityCalculator(mRealTimePositionVelocityCalculator);
         mRealTimePositionVelocityCalculator.setMapFragment(mapFragment);
-        mRealTimePositionVelocityCalculator.setFileLogger(fileLogger);
     }
 
     @Override
@@ -352,10 +350,14 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
 
     private int gps_count = 0;
     private int gps_len = 5;
+    public static double[] llaData = new double[3];
 
     /** GPS传感器数据读取，用于设定初值 */
     @Override
     public void onLocationChanged(@NonNull Location location) {
+        llaData[0] = location.getLatitude();
+        llaData[1] = location.getLongitude();
+        llaData[2] = location.getLongitude();
         if (gps_count >= gps_len) {
             mRealTimePositionVelocityCalculator.mPseudorangePositionVelocityFromRealTimeEvents.setReferencePosition((int) (location.getLatitude() * 1E7),
                     (int) (location.getLongitude() * 1E7),

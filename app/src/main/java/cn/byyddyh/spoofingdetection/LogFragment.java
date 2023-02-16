@@ -29,7 +29,8 @@ public class LogFragment extends Fragment {
     private Button buttonStart;
     private Button buttonEnd;
     private static final int USED_COLOR = Color.rgb(0x4a, 0x5f, 0x70);
-    FileLogger fileLogger;
+    @SuppressLint("StaticFieldLeak")
+    public static FileLogger fileLogger;
 
     public static void logText(String tag, String text) {
         if (uiFragmentComponent != null) {
@@ -43,6 +44,11 @@ public class LogFragment extends Fragment {
     public static TextView[] mAcc = new TextView[3];
     public static TextView[] mVel = new TextView[3];
     public static TextView[] mPos = new TextView[3];
+
+    /**
+     * 文件写入标志位
+     */
+    public static boolean writableFlag = false;
 
     int count = 0;
     @SuppressLint("MissingInflatedId")
@@ -75,6 +81,7 @@ public class LogFragment extends Fragment {
         buttonStart.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+                writableFlag = true;
                 fileLogger.startNewLog();
             }
         });
@@ -82,6 +89,7 @@ public class LogFragment extends Fragment {
         buttonEnd.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+                writableFlag = false;
                 fileLogger.send();
             }
         });

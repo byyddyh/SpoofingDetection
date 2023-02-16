@@ -243,6 +243,27 @@ public class FileLogger {
         }
     }
 
+    public void storeListData(String str, List<Double> data) {
+        synchronized (mFileLock) {
+            if (mFileWriter == null) {
+                return;
+            }
+            StringBuilder builder = new StringBuilder(str);
+
+            for (double datum : data) {
+                builder.append(RECORD_DELIMITER);
+                builder.append(datum);
+            }
+
+            try {
+                mFileWriter.write(builder.toString());
+                mFileWriter.newLine();
+            } catch (IOException e) {
+                logException(ERROR_WRITING_FILE, e);
+            }
+        }
+    }
+
     public void storeArrayData(String str, double[] data) {
         synchronized (mFileLock) {
             if (mFileWriter == null) {
@@ -275,7 +296,6 @@ public class FileLogger {
         Log.e(MeasurementProviderTAG + TAG, errorMessage, e);
         Toast.makeText(mContext, errorMessage, Toast.LENGTH_LONG).show();
     }
-
 
     /**
      * Implements a {@link FileFilter} to delete files that are not in the
