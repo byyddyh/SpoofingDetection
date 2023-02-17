@@ -285,17 +285,8 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
 
                 // 进行位置计算
                 if (acc_count < acc_len) {
-                    for (int i = 0; i < 3; i++) {
-                        acc_ave[i] += mLin_Acc_Buffer[i];
-                    }
                     acc_count++;
                 } else {
-                    if (acc_count == acc_len) {
-                        for (int i = 0; i < 3; i++) {
-                            acc_ave[i] = acc_ave[i] / acc_len;
-                        }
-                    }
-
                     for (int i = 0; i < 3; i++) {
                         vel_mea[i] = vel_mea[i] + (mLin_Acc_Buffer[i]) * delta_timestamp_sec;
                         pos_mea[i] = pos_mea[i] + vel_mea[i] * delta_timestamp_sec;
@@ -348,22 +339,38 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
         mOriBufferReady = false;
     }
 
+    private int init_gps_count = 0;
+    private int init_gps_len = 5;
     private int gps_count = 0;
-    private int gps_len = 5;
     public static double[] llaData = new double[3];
+    public static double[] initData = new double[3];        // 接收机位置的平均值
 
     /** GPS传感器数据读取，用于设定初值 */
     @Override
     public void onLocationChanged(@NonNull Location location) {
-        llaData[0] = location.getLatitude();
-        llaData[1] = location.getLongitude();
-        llaData[2] = location.getLongitude();
-        if (gps_count >= gps_len) {
-            mRealTimePositionVelocityCalculator.mPseudorangePositionVelocityFromRealTimeEvents.setReferencePosition((int) (location.getLatitude() * 1E7),
-                    (int) (location.getLongitude() * 1E7),
-                    (int) (location.getAltitude() * 1E7));
+        if (init_gps_count >= init_gps_len) {
+            llaData[0] = location.getLatitude();
+            llaData[1] = location.getLongitude();
+            llaData[2] = location.getLongitude();
+            int gps_len = 10;
+            if (gps_count == gps_len) {
+                mRealTimePositionVelocityCalculator.mPseudorangePositionVelocityFromRealTimeEvents.setReferencePosition((int) (location.getLatitude() * 1E7),
+                        (int) (location.getLongitude() * 1E7),
+                        (int) (location.getAltitude() * 1E7));
+                ++gps_count;
+            } else if (gps_count < gps_len){
+                ++gps_count;
+                initData[0] += location.getLatitude();
+                initData[1] += location.getLongitude();
+                initData[2] += location.getLongitude();
+                if (gps_count == gps_len) {
+                    initData[0] = initData[0] / gps_len;
+                    initData[1] = initData[1] / gps_len;
+                    initData[2] = initData[2] / gps_len;
+                }
+            }
         } else {
-            ++gps_count;
+            ++init_gps_count;
         }
     }
 

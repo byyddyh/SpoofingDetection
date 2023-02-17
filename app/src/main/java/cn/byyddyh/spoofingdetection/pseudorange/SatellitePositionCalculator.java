@@ -58,11 +58,13 @@ public class SatellitePositionCalculator {
       double userPosZMeters) throws Exception {
 
     // lets start with a first user to sat distance guess of 70 ms and zero velocity
+    // 让我们从第一个用户开始，猜测距离为70毫秒，速度为零
     RangeAndRangeRate userSatRangeAndRate = new RangeAndRangeRate
         (0.070 * SPEED_OF_LIGHT_MPS, 0.0 /* range rate*/);
 
     // To apply sagnac effect correction, We are starting from an approximate guess of the user to
     // satellite range, iterate 3 times and that should be enough to reach millimeter accuracy
+    // 为了应用sagnac效应校正，我们从用户对卫星距离的近似估计开始，迭代3次，这应该足以达到毫米级精度
     PositionAndVelocity satPosAndVel = new PositionAndVelocity(0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
     PositionAndVelocity userPosAndVel =
         new PositionAndVelocity(userPosXMeters, userPosYMeters, userPosZMeters,
@@ -100,6 +102,7 @@ public class SatellitePositionCalculator {
 
     // Calculate satellite clock correction (meters), Kepler Eccentric anomaly (radians) and time
     // from ephemeris reference epoch (tkSec) iteratively
+    // 迭代计算卫星时钟校正（米）、开普勒偏心异常（弧度）和来自星历参考历元（tkSec）的时间
     SatelliteClockCorrectionCalculator.SatClockCorrection satClockCorrectionValues =
         SatelliteClockCorrectionCalculator.calculateSatClockCorrAndEccAnomAndTkIteratively(
             ephemerisProto, receiverGpsTowAtTimeOfTransmissionCorrected,
@@ -109,51 +112,63 @@ public class SatellitePositionCalculator {
     double tkSec = satClockCorrectionValues.timeFromRefEpochSec;
 
     // True_anomaly (angle from perigee)
+    // 真距（距近地点的角度）
     double trueAnomalyRadians = Math.atan2(
             Math.sqrt(1.0 - ephemerisProto.e * ephemerisProto.e)
                     * Math.sin(eccentricAnomalyRadians),
             Math.cos(eccentricAnomalyRadians) - ephemerisProto.e);
 
     // Argument of latitude of the satellite
+    // 卫星纬度参数
     double argumentOfLatitudeRadians = trueAnomalyRadians + ephemerisProto.omega;
 
     // Radius of satellite orbit
+    // 卫星轨道半径
     double radiusOfSatelliteOrbitMeters = ephemerisProto.rootOfA * ephemerisProto.rootOfA
             * (1.0 - ephemerisProto.e * Math.cos(eccentricAnomalyRadians));
 
     // Radius correction due to second harmonic perturbations of the orbit
+    // 轨道二次谐波扰动引起的半径修正
     double radiusCorrectionMeters = ephemerisProto.crc
             * Math.cos(2.0 * argumentOfLatitudeRadians) + ephemerisProto.crs
             * Math.sin(2.0 * argumentOfLatitudeRadians);
     // Argument of latitude correction due to second harmonic perturbations of the orbit
+    // 轨道二次谐波扰动引起的纬度修正论证
     double argumentOfLatitudeCorrectionRadians = ephemerisProto.cuc
             * Math.cos(2.0 * argumentOfLatitudeRadians) + ephemerisProto.cus
             * Math.sin(2.0 * argumentOfLatitudeRadians);
     // Correction to inclination due to second harmonic perturbations of the orbit
+    // 轨道二次谐波扰动引起的倾角修正
     double inclinationCorrectionRadians = ephemerisProto.cic
             * Math.cos(2.0 * argumentOfLatitudeRadians) + ephemerisProto.cis
             * Math.sin(2.0 * argumentOfLatitudeRadians);
 
     // Corrected radius of satellite orbit
+    // 卫星轨道修正半径
     radiusOfSatelliteOrbitMeters += radiusCorrectionMeters;
     // Corrected argument of latitude
+    // 纬度修正参数
     argumentOfLatitudeRadians += argumentOfLatitudeCorrectionRadians;
     // Corrected inclination
+    // 校正倾斜度
     double inclinationRadians =
             ephemerisProto.i0 + inclinationCorrectionRadians + ephemerisProto.iDot * tkSec;
 
     // Position in orbital plane
+    // 轨道平面位置
     double xPositionMeters = radiusOfSatelliteOrbitMeters * Math.cos(argumentOfLatitudeRadians);
     double yPositionMeters = radiusOfSatelliteOrbitMeters * Math.sin(argumentOfLatitudeRadians);
 
     // Corrected longitude of the ascending node (signal propagation time is included to compensate
     // for the Sagnac effect)
+    // 上升节点的修正经度（包括信号传播时间以补偿Sagnac效应）
     double omegaKRadians = ephemerisProto.omega0
             + (ephemerisProto.omegaDot - EARTH_ROTATION_RATE_RAD_PER_SEC) * tkSec
             - EARTH_ROTATION_RATE_RAD_PER_SEC
             * (ephemerisProto.toe + userSatRangeAndRate.rangeMeters / SPEED_OF_LIGHT_MPS);
 
     // compute the resulting satellite position
+    // 计算得到的卫星位置
     double satPosXMeters = xPositionMeters * Math.cos(omegaKRadians) - yPositionMeters
             * Math.cos(inclinationRadians) * Math.sin(omegaKRadians);
     double satPosYMeters = xPositionMeters * Math.sin(omegaKRadians) + yPositionMeters

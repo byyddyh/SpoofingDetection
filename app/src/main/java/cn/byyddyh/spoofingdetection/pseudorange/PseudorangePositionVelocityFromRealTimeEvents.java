@@ -321,15 +321,19 @@ public class PseudorangePositionVelocityFromRealTimeEvents {
                 + mVelocitySolutionEnuMps[2]);
 
         if (LogFragment.writableFlag) {
-          LogFragment.fileLogger.storeData("Latitude, Longitude, Altitude, ",
+          LogFragment.fileLogger.storeData("Latitude, Longitude, Altitude",
                   new double[]{mPositionSolutionLatLngDeg[0],
                           mPositionSolutionLatLngDeg[1],
                           mPositionSolutionLatLngDeg[2]});
 
-          LogFragment.fileLogger.storeData("Velocity ENU Mps, ",
+          LogFragment.fileLogger.storeData("Velocity ENU Mps",
                   new double[]{mVelocitySolutionEnuMps[0],
                           mVelocitySolutionEnuMps[1],
                           mVelocitySolutionEnuMps[2]});
+
+          // TODO 更新 MainActivity.pos_mea
+          // TODO 更新 MainActivity.vel_mea
+          // TODO 添加一个 TableRow 用于展示 Lla
         }
 
         mPositionVelocityUncertaintyEnu[3] = positionVelocityUncertaintyEnu[3];

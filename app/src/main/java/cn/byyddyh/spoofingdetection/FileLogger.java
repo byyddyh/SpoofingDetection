@@ -232,7 +232,6 @@ public class FileLogger {
             builder.append(data[1]);
             builder.append(RECORD_DELIMITER);
             builder.append(data[2]);
-            builder.append(RECORD_DELIMITER);
 
             try {
                 mFileWriter.write(builder.toString());

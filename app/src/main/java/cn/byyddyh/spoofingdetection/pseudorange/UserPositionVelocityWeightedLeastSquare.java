@@ -92,6 +92,10 @@ class UserPositionVelocityWeightedLeastSquare {
     this.truthLocationForCorrectedResidualComputationEcef = groundTruthForResidualCorrectionEcef;
   }
 
+  private double[] satPseudorangeInitErrorVal = new double[31];                   // 第一次获取该卫星初始伪距误差值
+  private double[] satPseudorangeInitCount = new double[31];                      // 第一次获取该卫星伪距的采样时刻
+  private double[] satPseudorangeReceiverVal = new double[31];                    // 第一次获取该卫星对应的接收机误差
+
   /**
    * Least square solution to calculate the user position given the navigation message, pseudorange
    * and accumulated delta range measurements. Also calculates user velocity non-iteratively from
@@ -183,18 +187,55 @@ class UserPositionVelocityWeightedLeastSquare {
 
     // TODO 记录伪距的测量值
     List<Double> receiverMeasurementPseudorangeMeters = new ArrayList<>();
-//    List<Double> receiverMeasurementPseudorangeUncertaintyMeters = new ArrayList<>();
-    for (int i = 0; i < usefulSatellitesToReceiverMeasurements.size(); i++) {
-      if (usefulSatellitesToReceiverMeasurements.get(i) != null) {
-        receiverMeasurementPseudorangeMeters.add(usefulSatellitesToReceiverMeasurements.get(i).pseudorangeMeters);
+    List<Double> receiverMeasurementSvid = new ArrayList<>();
+    for (int i = 0; i < mutableSmoothedSatellitesToReceiverMeasurements.size(); i++) {
+      if (mutableSmoothedSatellitesToReceiverMeasurements.get(i) != null) {
+        receiverMeasurementPseudorangeMeters.add(mutableSmoothedSatellitesToReceiverMeasurements.get(i).pseudorangeMeters);
+        receiverMeasurementSvid.add((double) i);
       }
-//      receiverMeasurementPseudorangeUncertaintyMeters.add(mutableSmoothedSatellitesToReceiverMeasurements.get(i).pseudorangeUncertaintyMeters);
     }
     Log.d("GNSS pseudorange Meters", String.valueOf(receiverMeasurementPseudorangeMeters));
-//    Log.d("GNSS pseudorange Uncertainty Meters", String.valueOf(receiverMeasurementPseudorangeUncertaintyMeters));
     if (LogFragment.writableFlag) {
       LogFragment.fileLogger.storeListData("GNSS Measurement pseudorange Meters", receiverMeasurementPseudorangeMeters);
-//      LogFragment.fileLogger.storeListData("GNSS Measurement pseudorange Uncertainty Meters", receiverMeasurementPseudorangeUncertaintyMeters);
+      LogFragment.fileLogger.storeListData("GNSS Measurement Svid", receiverMeasurementSvid);
+    }
+
+    // TODO 在这里需要计算 星历误差，卫星位置
+    // TODO 误差项 = 接收机误差 * 时间
+    // TODO 计算伪距测量值和估计值之间的误差 = 伪距测量值 - 初始误差(星历误差等数据) - 误差项(接收机误差) - 估计值
+    // TODO 记录伪距的实际值 = 卫星 -> 接收机的位置
+    List<double[]> satPosEcefData = new ArrayList<>();
+    for (int i = 0; i < GpsNavigationMessageStore.MAX_NUMBER_OF_SATELLITES; i++) {
+      if (mutableSmoothedSatellitesToReceiverMeasurements.get(i) != null) {
+        GpsEphemerisProto ephemeridesProto = getEphemerisForSatellite(navMessageProto, i + 1);
+
+        double pseudorangeMeasurementMeters =
+                mutableSmoothedSatellitesToReceiverMeasurements.get(i).pseudorangeMeters;
+        GpsTimeOfWeekAndWeekNumber correctedTowAndWeek =
+                calculateCorrectedTransmitTowAndWeek(ephemeridesProto, receiverGPSTowAtReceptionSeconds,
+                        receiverGPSWeek, pseudorangeMeasurementMeters);
+
+        // Calculate satellite velocity
+        SatellitePositionCalculator.PositionAndVelocity satPosECEFMetersVelocityMPS = SatellitePositionCalculator
+                .calculateSatellitePositionAndVelocityFromEphemeris(
+                        ephemeridesProto,
+                        correctedTowAndWeek.gpsTimeOfWeekSeconds,
+                        correctedTowAndWeek.weekNumber,
+                        positionVelocitySolutionECEF[0],
+                        positionVelocitySolutionECEF[1],
+                        positionVelocitySolutionECEF[2]);
+
+        // 卫星位置satPosECEFMetersVelocityMPS.position(X/Y/Z)Meters
+        satPosEcefData.add(new double[]{satPosECEFMetersVelocityMPS.positionXMeters, satPosECEFMetersVelocityMPS.positionYMeters, satPosECEFMetersVelocityMPS.positionZMeters});
+      }
+    }
+
+    if (LogFragment.writableFlag) {
+      double[] receiverEcefData = Lla2EcefConverter.convertFromLlaToEcefMeters(new Ecef2LlaConverter.GeodeticLlaValues(MainActivity.llaData[0], MainActivity.llaData[1], MainActivity.llaData[2]));
+      LogFragment.fileLogger.storeArrayData("GNSS Receiver Ecef Data", receiverEcefData);
+      for (int i = 0; i < satPosEcefData.size(); i++) {
+        LogFragment.fileLogger.storeArrayData("GNSS Satellite Position Ecef Data", satPosEcefData.get(i));
+      }
     }
 
     do {
@@ -316,13 +357,13 @@ class UserPositionVelocityWeightedLeastSquare {
         = new Array2DRowRealMatrix(numberOfUsefulSatellites, numberOfUsefulSatellites);
 
     // Correct the receiver time of week with the estimated receiver clock bias
+    // 使用估计的接收器时钟偏差校正接收器每周的时间
     receiverGPSTowAtReceptionSeconds =
         receiverGPSTowAtReceptionSeconds - positionVelocitySolutionECEF[3] / SPEED_OF_LIGHT_MPS;
 
     int measurementCount = 0;
 
     // Calculate range rates
-    List<double[]> satPosEcefData = new ArrayList<>();
     for (int i = 0; i < GpsNavigationMessageStore.MAX_NUMBER_OF_SATELLITES; i++) {
       if (mutableSmoothedSatellitesToReceiverMeasurements.get(i) != null) {
         GpsEphemerisProto ephemeridesProto = getEphemerisForSatellite(navMessageProto, i + 1);
@@ -404,16 +445,6 @@ class UserPositionVelocityWeightedLeastSquare {
         positionVelocityUncertaintyEnu,
         0 /*destination starting pos*/,
         6 /*length of elements*/);
-
-    // TODO 记录伪距的实际值 = 卫星 -> 接收机的位置
-    // 卫星位置satPosECEFMetersVelocityMPS.positionX(Y/Z)Meters     接收机位置
-    if (LogFragment.writableFlag) {
-      double[] receiverEcefData = Lla2EcefConverter.convertFromLlaToEcefMeters(new Ecef2LlaConverter.GeodeticLlaValues(MainActivity.llaData[0], MainActivity.llaData[1], MainActivity.llaData[2]));
-      LogFragment.fileLogger.storeArrayData("GNSS Receiver Ecef Data:", receiverEcefData);
-      for (int i = 0; i < satPosEcefData.size(); i++) {
-        LogFragment.fileLogger.storeArrayData("GNSS Satellite Position Ecef Data", satPosEcefData.get(i));
-      }
-    }
   }
 
   /**
