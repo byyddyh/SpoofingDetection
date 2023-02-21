@@ -218,11 +218,10 @@ public class RealTimePositionVelocityCalculator {
                                     updateMapViewWithPositions(
                                             posSolution[0],
                                             posSolution[1],
-                                            location.getLatitude(),
-                                            location.getLongitude(),
                                             location.getTime());
                                 } else {
-                                    clearMapMarkers();
+                                    clearMapMarkers(posSolution[0],
+                                            posSolution[1]);
                                 }
                             }
                         };
@@ -231,18 +230,16 @@ public class RealTimePositionVelocityCalculator {
         }
     }
 
-    private void clearMapMarkers() {
-        mMapFragment.clearMarkers();
+    private void clearMapMarkers(double latDegRaw, double lngDegRaw) {
+        mMapFragment.clearMarker(latDegRaw, lngDegRaw);
     }
 
     private void updateMapViewWithPositions(
             double latDegRaw,
             double lngDegRaw,
-            double latDegDevice,
-            double lngDegDevice,
             long timeMillis) {
-        mMapFragment.updateMapViewWithPositions(
-                latDegRaw, lngDegRaw, latDegDevice, lngDegDevice, timeMillis);
+        mMapFragment.addMarker(
+                latDegRaw, lngDegRaw);
     }
 
     public void onGnssMeasurementsReceived(final GnssMeasurementsEvent event) {

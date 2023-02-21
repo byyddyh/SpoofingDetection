@@ -29,6 +29,9 @@ import android.util.Log;
 
 import com.google.firebase.crashlytics.buildtools.reloc.org.apache.commons.logging.LogFactory;
 
+import org.apache.commons.math3.linear.MatrixUtils;
+import org.apache.commons.math3.linear.RealMatrix;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.net.UnknownHostException;
@@ -39,6 +42,7 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import cn.byyddyh.spoofingdetection.LogFragment;
+import cn.byyddyh.spoofingdetection.MainActivity;
 
 /**
  * Helper class for calculating Gps position and velocity solution using weighted least squares
@@ -90,6 +94,61 @@ public class PseudorangePositionVelocityFromRealTimeEvents {
   private int mDayOfYear1To366 = 0;
   private int mGpsWeekNumber = 0;
   private long mArrivalTimeSinceGpsEpochNs = 0;
+
+  /**
+   * 卡尔曼滤波器设置
+   */
+  private RealMatrix matrixA = MatrixUtils.createRealMatrix(new double[][]{
+          {1, 0, 0, 0, 0, 0},
+          {0, 1, 0, 0, 0, 0},
+          {0, 0, 1, 0, 0, 0},
+          {0, 0, 0, 1, 0, 0},
+          {0, 0, 0, 0, 1, 0},
+          {0, 0, 0, 0, 0, 1}
+  });
+  private RealMatrix matrixB = MatrixUtils.createRealMatrix(new double[][]{
+          {0, 0, 0, 0, 0, 0}
+  });
+  private RealMatrix matrixC = MatrixUtils.createRealMatrix(new double[][]{
+          {1, 0, 0, 0, 0, 0},
+          {0, 1, 0, 0, 0, 0},
+          {0, 0, 1, 0, 0, 0},
+          {0, 0, 0, 1, 0, 0},
+          {0, 0, 0, 0, 1, 0},
+          {0, 0, 0, 0, 0, 1}
+  });
+  private RealMatrix matrixR = MatrixUtils.createRealMatrix(new double[][]{
+          {1, 0, 0, 0, 0, 0},
+          {0, 1, 0, 0, 0, 0},
+          {0, 0, 1, 0, 0, 0},
+          {0, 0, 0, 0.1, 0, 0},
+          {0, 0, 0, 0, 0.1, 0},
+          {0, 0, 0, 0, 0, 0.1}
+  });
+  private RealMatrix matrixQ = MatrixUtils.createRealMatrix(new double[][]{
+          {10, 0, 0, 0, 0, 0},
+          {0, 10, 0, 0, 0, 0},
+          {0, 0, 10, 0, 0, 0},
+          {0, 0, 0, 0.5, 0, 0},
+          {0, 0, 0, 0, 0.5, 0},
+          {0, 0, 0, 0, 0, 0.5}
+  });
+  private RealMatrix matrixP = MatrixUtils.createRealMatrix(new double[][]{
+          {1, 0, 0, 0, 0, 0},
+          {0, 1, 0, 0, 0, 0},
+          {0, 0, 1, 0, 0, 0},
+          {0, 0, 0, 1, 0, 0},
+          {0, 0, 0, 0, 1, 0},
+          {0, 0, 0, 0, 0, 1}
+  });
+  private RealMatrix eyeSix = MatrixUtils.createRealMatrix(new double[][]{
+          {1, 0, 0, 0, 0, 0},
+          {0, 1, 0, 0, 0, 0},
+          {0, 0, 1, 0, 0, 0},
+          {0, 0, 0, 1, 0, 0},
+          {0, 0, 0, 0, 1, 0},
+          {0, 0, 0, 0, 0, 1}
+  });
 
   /**
    * Computes Weighted least square position and velocity solutions from a received {@link
@@ -330,15 +389,38 @@ public class PseudorangePositionVelocityFromRealTimeEvents {
                   new double[]{mVelocitySolutionEnuMps[0],
                           mVelocitySolutionEnuMps[1],
                           mVelocitySolutionEnuMps[2]});
+        }
 
-          // TODO 更新 MainActivity.pos_mea
-          // TODO 更新 MainActivity.vel_mea
-          // TODO 添加一个 TableRow 用于展示 Lla
+        RealMatrix temp = MatrixUtils.createRealMatrix(new double[][]{
+                {MainActivity.pos_mea[0], MainActivity.pos_mea[1], MainActivity.pos_mea[2],
+                        MainActivity.vel_mea[0], MainActivity.vel_mea[1], MainActivity.vel_mea[2]}
+        });
+        Ecef2EnuConverter.EnuValues enuValues = Ecef2EnuConverter.convertEcefToEnu(positionVelocitySolutionEcef[0], positionVelocitySolutionEcef[1], positionVelocitySolutionEcef[2],
+                MainActivity.init_radians_mea[0], MainActivity.init_radians_mea[1]);
+        RealMatrix tempGNSS = MatrixUtils.createRealMatrix(new double[][]{
+                {enuValues.enuEast - MainActivity.enuValues.enuEast, enuValues.enuNorth - MainActivity.enuValues.enuNorth, enuValues.enuUP - MainActivity.enuValues.enuUP,
+                        mVelocitySolutionEnuMps[0], mVelocitySolutionEnuMps[1], mVelocitySolutionEnuMps[2]}
+        });
+
+        matrixP = matrixA.multiply(matrixP.transpose()).multiply(matrixA.transpose()).add(matrixR);
+        RealMatrix K = matrixP.multiply(matrixC.transpose()).multiply(MatrixUtils.inverse(
+                matrixC.multiply(matrixP).multiply(matrixC.transpose()).add(matrixQ)
+        ));
+
+        temp = temp.transpose().add(K.multiply(tempGNSS.transpose().subtract(matrixC.multiply(temp.transpose()))));
+        temp = temp.transpose();
+
+        matrixP = (eyeSix.subtract(K.multiply(matrixC))).multiply(matrixP);
+
+        for (int i = 0; i < 3; i++) {
+          MainActivity.pos_mea[i] = temp.getEntry(0, i);
+          MainActivity.vel_mea[i] = temp.getEntry(0, i + 3);
         }
 
         mPositionVelocityUncertaintyEnu[3] = positionVelocityUncertaintyEnu[3];
         mPositionVelocityUncertaintyEnu[4] = positionVelocityUncertaintyEnu[4];
         mPositionVelocityUncertaintyEnu[5] = positionVelocityUncertaintyEnu[5];
+
         Log.d(TAG,
             "Velocity Uncertainty ENU Mps :"
                 + mPositionVelocityUncertaintyEnu[3]

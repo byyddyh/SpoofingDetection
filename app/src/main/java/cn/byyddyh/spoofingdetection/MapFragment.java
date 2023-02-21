@@ -24,8 +24,11 @@ import com.amap.api.maps.MapView;
 import com.amap.api.maps.UiSettings;
 import com.amap.api.maps.model.BitmapDescriptorFactory;
 import com.amap.api.maps.model.LatLng;
+import com.amap.api.maps.model.Marker;
 import com.amap.api.maps.model.MarkerOptions;
 import com.amap.api.maps.model.MyLocationStyle;
+
+import java.util.Random;
 
 import pub.devrel.easypermissions.AfterPermissionGranted;
 import pub.devrel.easypermissions.EasyPermissions;
@@ -38,7 +41,7 @@ public class MapFragment extends Fragment implements AMapLocationListener, Locat
     //内容
     private MapView mapView;
     //地图控制器
-    private AMap aMap = null;
+    public static AMap aMap = null;
     //位置更改监听
     private LocationSource.OnLocationChangedListener mListener;
     //定位样式
@@ -136,10 +139,6 @@ public class MapFragment extends Fragment implements AMapLocationListener, Locat
 
     /**
      * 请求权限结果
-     *
-     * @param requestCode
-     * @param permissions
-     * @param grantResults
      */
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
@@ -150,8 +149,6 @@ public class MapFragment extends Fragment implements AMapLocationListener, Locat
 
     /**
      * Toast提示
-     *
-     * @param msg 提示内容
      */
     private void showMsg(String msg) {
         Toast.makeText(requireActivity().getApplicationContext(), msg, Toast.LENGTH_SHORT).show();
@@ -195,26 +192,25 @@ public class MapFragment extends Fragment implements AMapLocationListener, Locat
 
     /**
      * 接收异步返回的定位结果
-     *
-     * @param aMapLocation
      */
     @Override
     public void onLocationChanged(AMapLocation aMapLocation) {
         if (aMapLocation != null) {
             if (aMapLocation.getErrorCode() == 0) {
-                // 停止定位后，本地定位服务并不会被销毁
-                mLocationClient.stopLocation();
+                aMapLocation.setLatitude(MainActivity.lla_mea_temp[0]);
+                aMapLocation.setLongitude(MainActivity.lla_mea_temp[1]);
+
+                StringBuffer stringBuffer = new StringBuffer();
+                stringBuffer.append("纬度:").append(aMapLocation.getLatitude()).append("\n");
+                stringBuffer.append("经度:").append(aMapLocation.getLongitude()).append("\n");
+
+                showMsg(stringBuffer.toString());
 
                 // 显示地图定位结果
                 if (mListener != null) {
                     // 显示系统图标
                     mListener.onLocationChanged(aMapLocation);
                 }
-
-                // 添加标点
-                // 121.409328,31.307873
-                LatLng latLng = new LatLng(31.307873, 121.409328);
-                aMap.addMarker(new MarkerOptions().position(latLng).snippet("DefaultMarker"));
             } else {
                 //定位失败时，可通过ErrCode（错误码）信息来确定失败的原因，errInfo是错误信息，详见错误码表。
                 Log.e("AmapError", "location Error, ErrCode:"
@@ -226,8 +222,6 @@ public class MapFragment extends Fragment implements AMapLocationListener, Locat
 
     /**
      * 初始化地图
-     *
-     * @param savedInstanceState
      */
     private void initMap(View inflate, Bundle savedInstanceState) {
         mapView = inflate.findViewById(R.id.map_view);
@@ -290,19 +284,37 @@ public class MapFragment extends Fragment implements AMapLocationListener, Locat
     /**
      * 去除标记点
      */
-    public void clearMarkers() {
+    public void clearMarker(double latDegRaw, double lngDegRaw) {
+        LatLng latLng = new LatLng(latDegRaw, lngDegRaw);
+        Marker marker = aMap.addMarker(new MarkerOptions().position(latLng).snippet("DefaultMarker"));
+        marker.remove();
+        marker.remove();
     }
+
+
+    private int markerCount = 0;
+    private final int markerSize = 50;
+    private boolean removeFlag = false;
+    private final Marker[] markers = new Marker[markerSize];
 
     /**
      * 添加标记点
-     * @param latDegRaw
-     * @param lngDegRaw
-     * @param latDegDevice
-     * @param lngDegDevice
-     * @param timeMillis
      */
-    public void updateMapViewWithPositions(double latDegRaw, double lngDegRaw, double latDegDevice, double lngDegDevice, long timeMillis) {
+    public void addMarker(double latDegRaw, double lngDegRaw) {
+        if (markerCount == markerSize) {
+            markerCount = 0;
+            removeFlag = true;
+        }
 
+        if (removeFlag) {
+            markers[markerCount].remove();
+        }
+
+        LatLng latLng = new LatLng(latDegRaw, lngDegRaw);
+        MarkerOptions markerOptions = new MarkerOptions().position(latLng).snippet("DefaultMarker");
+        Marker marker = aMap.addMarker(markerOptions);
+        markers[markerCount] = marker;
+        markerCount++;
     }
 
     public void setPositionVelocityCalculator(RealTimePositionVelocityCalculator mRealTimePositionVelocityCalculator) {

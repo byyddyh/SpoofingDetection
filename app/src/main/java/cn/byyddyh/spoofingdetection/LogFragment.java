@@ -155,9 +155,9 @@ public class LogFragment extends Fragment {
     }
 
     @SuppressLint("DefaultLocale")
-    public void setPosView(double[] pos_mea) {
+    public void setPosView(double[] pos_mea, int n) {
         for (int i = 0; i < pos_mea.length; i++) {
-            mPos[i].setText(String.format("%6.3f", pos_mea[i]));
+            mPos[i].setText(String.format("%6.3f", pos_mea[i] / n));
         }
     }
 }

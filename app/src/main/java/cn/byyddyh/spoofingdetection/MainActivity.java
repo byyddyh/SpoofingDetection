@@ -10,7 +10,6 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.graphics.Color;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
@@ -24,10 +23,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
-import android.os.Handler;
-import android.os.HandlerThread;
 import android.provider.Settings;
-import android.util.Log;
 
 import com.amap.api.location.AMapLocationClient;
 import com.amap.api.maps.MapsInitializer;
@@ -35,15 +31,13 @@ import com.amap.api.services.core.ServiceSettings;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 
 import java.io.IOException;
+import java.util.Random;
 
-import cn.byyddyh.spoofingdetection.process.FileUtils;
 import cn.byyddyh.spoofingdetection.process.GetEphemeris;
-import cn.byyddyh.spoofingdetection.process.ProcessUtils;
 import cn.byyddyh.spoofingdetection.process.dataModel.GNSSGpsEph;
-import cn.byyddyh.spoofingdetection.process.dataModel.GNSSMeas;
-import cn.byyddyh.spoofingdetection.process.dataModel.GNSSRaw;
-import cn.byyddyh.spoofingdetection.process.dataProcess.GNSSPosition;
-import cn.byyddyh.spoofingdetection.pseudorange.PseudorangePositionVelocityFromRealTimeEvents;
+import cn.byyddyh.spoofingdetection.pseudorange.Ecef2EnuConverter;
+import cn.byyddyh.spoofingdetection.pseudorange.Ecef2LlaConverter;
+import cn.byyddyh.spoofingdetection.pseudorange.Lla2EcefConverter;
 
 public class MainActivity extends AppCompatActivity implements LocationListener {
 
@@ -258,7 +252,6 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
     public static double[] mLin_Acc_Buffer = new double[3];
     public static double[] pos_mea = new double[3];
     public static double[] vel_mea = new double[3];
-    public static double[] acc_ave = new double[3];
     private static int acc_count = 0;
     private static int acc_len = 200;
     private static double delta_timestamp_sec = 0;
@@ -291,7 +284,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
                         vel_mea[i] = vel_mea[i] + (mLin_Acc_Buffer[i]) * delta_timestamp_sec;
                         pos_mea[i] = pos_mea[i] + vel_mea[i] * delta_timestamp_sec;
                         logFragment.setVelView(vel_mea);
-                        logFragment.setPosView(pos_mea);
+                        logFragment.setPosView(pos_mea, 1);
                     }
                 }
             }
@@ -342,31 +335,47 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
     private int init_gps_count = 0;
     private int init_gps_len = 5;
     private int gps_count = 0;
-    public static double[] llaData = new double[3];
-    public static double[] initData = new double[3];        // 接收机位置的平均值
+    public static double[] lla_mea = new double[3];        // 接收机位置的平均值
+    public static double[] init_radians_mea = new double[3];        // 接收机位置的平均值
+    public static double[] init_ecef_Meters;        // 接收机位置的平均值
+    public static Ecef2EnuConverter.EnuValues enuValues;        // 接收机位置的平均值
+
+    public static double[] lla_mea_temp = new double[3];
 
     /** GPS传感器数据读取，用于设定初值 */
     @Override
     public void onLocationChanged(@NonNull Location location) {
+        lla_mea_temp[0] = location.getLatitude();
+        lla_mea_temp[1] = location.getLongitude();
+//        if (mapFragment != null && MapFragment.aMap != null) {
+//            mapFragment.addMarker(location.getLatitude(), location.getLongitude());
+//        }
+
         if (init_gps_count >= init_gps_len) {
-            llaData[0] = location.getLatitude();
-            llaData[1] = location.getLongitude();
-            llaData[2] = location.getLongitude();
             int gps_len = 10;
             if (gps_count == gps_len) {
                 mRealTimePositionVelocityCalculator.mPseudorangePositionVelocityFromRealTimeEvents.setReferencePosition((int) (location.getLatitude() * 1E7),
                         (int) (location.getLongitude() * 1E7),
                         (int) (location.getAltitude() * 1E7));
+                for (int i = 0; i < 3; i++) {
+                    vel_mea[i] = 0;
+                    pos_mea[i] = 0;
+                }
                 ++gps_count;
             } else if (gps_count < gps_len){
                 ++gps_count;
-                initData[0] += location.getLatitude();
-                initData[1] += location.getLongitude();
-                initData[2] += location.getLongitude();
+                lla_mea[0] += location.getLatitude();
+                lla_mea[1] += location.getLongitude();
+                lla_mea[2] += location.getAltitude();
                 if (gps_count == gps_len) {
-                    initData[0] = initData[0] / gps_len;
-                    initData[1] = initData[1] / gps_len;
-                    initData[2] = initData[2] / gps_len;
+                    for (int i = 0; i < 3; i++) {
+                        lla_mea[i] = lla_mea[i] / gps_len;
+                    }
+                    init_radians_mea[0] = Math.toRadians(lla_mea[0]);
+                    init_radians_mea[1] = Math.toRadians(lla_mea[1]);
+                    init_ecef_Meters = Lla2EcefConverter.convertFromLlaToEcefMeters(new Ecef2LlaConverter.GeodeticLlaValues(init_radians_mea[0], init_radians_mea[1], init_radians_mea[2]));
+                    enuValues = Ecef2EnuConverter.convertEcefToEnu(init_ecef_Meters[0], init_ecef_Meters[1], init_ecef_Meters[2],
+                            init_radians_mea[0], init_radians_mea[1]);
                 }
             }
         } else {

@@ -135,8 +135,8 @@
 
             <TextView
                 android:id="@+id/CheckBox_Vel"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
                 android:layout_gravity="center_horizontal"
                 android:text="Velocity"
                 android:textAppearance="?android:attr/textAppearanceSmall" />
@@ -184,7 +184,7 @@
             <TextView
                 android:id="@+id/CheckBox_Pos"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_height="match_parent"
                 android:layout_gravity="center_horizontal"
                 android:text="Position"
                 android:textAppearance="?android:attr/textAppearanceSmall" />

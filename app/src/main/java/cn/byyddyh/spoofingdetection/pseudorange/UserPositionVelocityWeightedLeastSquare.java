@@ -231,7 +231,7 @@ class UserPositionVelocityWeightedLeastSquare {
     }
 
     if (LogFragment.writableFlag) {
-      double[] receiverEcefData = Lla2EcefConverter.convertFromLlaToEcefMeters(new Ecef2LlaConverter.GeodeticLlaValues(MainActivity.llaData[0], MainActivity.llaData[1], MainActivity.llaData[2]));
+      double[] receiverEcefData = Lla2EcefConverter.convertFromLlaToEcefMeters(new Ecef2LlaConverter.GeodeticLlaValues(MainActivity.lla_mea[0], MainActivity.lla_mea[1], MainActivity.lla_mea[2]));
       LogFragment.fileLogger.storeArrayData("GNSS Receiver Ecef Data", receiverEcefData);
       for (int i = 0; i < satPosEcefData.size(); i++) {
         LogFragment.fileLogger.storeArrayData("GNSS Satellite Position Ecef Data", satPosEcefData.get(i));
