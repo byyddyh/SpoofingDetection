@@ -15,4 +15,9 @@
     <color name="red">#ff0000</color>
     <color name="green">#00ff00</color>
     <color name="blue">#0000ff</color>
+
+    <color name="yellowMat">#EDB120</color>
+    <color name="blueMat">#0072BD</color>
+    <color name="orangeMat">#D95319</color>
+    <color name="greenMat">#4DBEEE</color>
 </resources>

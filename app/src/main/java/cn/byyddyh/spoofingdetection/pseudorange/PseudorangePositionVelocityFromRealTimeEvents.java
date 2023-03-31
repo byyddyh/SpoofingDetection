@@ -43,6 +43,7 @@ import java.util.concurrent.TimeUnit;
 
 import cn.byyddyh.spoofingdetection.LogFragment;
 import cn.byyddyh.spoofingdetection.MainActivity;
+import cn.byyddyh.spoofingdetection.SettingsFragment;
 
 /**
  * Helper class for calculating Gps position and velocity solution using weighted least squares
@@ -130,9 +131,9 @@ public class PseudorangePositionVelocityFromRealTimeEvents {
             {100, 0, 0, 0, 0, 0},
             {0, 100, 0, 0, 0, 0},
             {0, 0, 100, 0, 0, 0},
-            {0, 0, 0, 0.5, 0, 0},
-            {0, 0, 0, 0, 0.5, 0},
-            {0, 0, 0, 0, 0, 0.5}
+            {0, 0, 0, 100, 0, 0},
+            {0, 0, 0, 0, 100, 0},
+            {0, 0, 0, 0, 0, 100}
     });
     private RealMatrix matrixP = MatrixUtils.createRealMatrix(new double[][]{
             {1, 0, 0, 0, 0, 0},
@@ -328,20 +329,21 @@ public class PseudorangePositionVelocityFromRealTimeEvents {
                         GpsNavigationMessageStore.MAX_NUMBER_OF_SATELLITES /*length of elements*/
                 );
 
-                Log.d(TAG,
-                        "Position Uncertainty ENU Meters :"
-                                + mPositionVelocityUncertaintyEnu[0]
-                                + " "
-                                + mPositionVelocityUncertaintyEnu[1]
-                                + " "
-                                + mPositionVelocityUncertaintyEnu[2]);
-                LogFragment.logText("Data", "Position Uncertainty ENU Meters: "
-                        + mPositionVelocityUncertaintyEnu[0]
-                        + " "
-                        + mPositionVelocityUncertaintyEnu[1]
-                        + " "
-                        + mPositionVelocityUncertaintyEnu[2]);
+//                Log.d(TAG,
+//                        "Position Uncertainty ENU Meters :"
+//                                + mPositionVelocityUncertaintyEnu[0]
+//                                + " "
+//                                + mPositionVelocityUncertaintyEnu[1]
+//                                + " "
+//                                + mPositionVelocityUncertaintyEnu[2]);
+//                LogFragment.logText("Data", "Position Uncertainty ENU Meters: "
+//                        + mPositionVelocityUncertaintyEnu[0]
+//                        + " "
+//                        + mPositionVelocityUncertaintyEnu[1]
+//                        + " "
+//                        + mPositionVelocityUncertaintyEnu[2]);
 
+                MainActivity.mapFragment.addMarker(mPositionSolutionLatLngDeg[0], mPositionSolutionLatLngDeg[1]);
                 Log.d(
                         TAG,
                         "Latitude, Longitude, Altitude: "
@@ -398,7 +400,7 @@ public class PseudorangePositionVelocityFromRealTimeEvents {
                 if (initEnuValues == null) {
                     initEnuValues = Ecef2EnuConverter.convertEcefToEnu(
                             positionVelocitySolutionEcef[0], positionVelocitySolutionEcef[1], positionVelocitySolutionEcef[2],
-                            latLngAlt.latitudeRadians, latLngAlt.longitudeRadians
+                            SettingsFragment.latitude, SettingsFragment.longitude
                     );
                     initlla[0] = latLngAlt.latitudeRadians;
                     initlla[1] = latLngAlt.longitudeRadians;
@@ -410,7 +412,7 @@ public class PseudorangePositionVelocityFromRealTimeEvents {
                     });
                     Ecef2EnuConverter.EnuValues enuValues = Ecef2EnuConverter.convertEcefToEnu(
                             positionVelocitySolutionEcef[0], positionVelocitySolutionEcef[1], positionVelocitySolutionEcef[2],
-                            initlla[0], initlla[1]);
+                            SettingsFragment.latitude, SettingsFragment.longitude);
                     RealMatrix tempGNSS = MatrixUtils.createRealMatrix(new double[][]{
                             {enuValues.enuEast - initEnuValues.enuEast, enuValues.enuNorth - initEnuValues.enuNorth, enuValues.enuUP - initEnuValues.enuUP,
                                     mVelocitySolutionEnuMps[0], mVelocitySolutionEnuMps[1], mVelocitySolutionEnuMps[2]}
@@ -436,13 +438,13 @@ public class PseudorangePositionVelocityFromRealTimeEvents {
                 mPositionVelocityUncertaintyEnu[4] = positionVelocityUncertaintyEnu[4];
                 mPositionVelocityUncertaintyEnu[5] = positionVelocityUncertaintyEnu[5];
 
-                Log.d(TAG,
-                        "Velocity Uncertainty ENU Mps :"
-                                + mPositionVelocityUncertaintyEnu[3]
-                                + " "
-                                + mPositionVelocityUncertaintyEnu[4]
-                                + " "
-                                + mPositionVelocityUncertaintyEnu[5]);
+//                Log.d(TAG,
+//                        "Velocity Uncertainty ENU Mps :"
+//                                + mPositionVelocityUncertaintyEnu[3]
+//                                + " "
+//                                + mPositionVelocityUncertaintyEnu[4]
+//                                + " "
+//                                + mPositionVelocityUncertaintyEnu[5]);
             }
             mFirstUsefulMeasurementSet = false;
         } else {
@@ -515,25 +517,25 @@ public class PseudorangePositionVelocityFromRealTimeEvents {
                 positionVelocityUncertaintyEnu,
                 pseudorangeResidualMeters);
 
-        Log.d(
-                TAG,
-                "Least Square Position Solution in ECEF meters: "
-                        + positionVelocitySolutionEcef[0]
-                        + " "
-                        + positionVelocitySolutionEcef[1]
-                        + " "
-                        + positionVelocitySolutionEcef[2]);
-        Log.d(TAG, "Estimated Receiver clock offset in meters: " + positionVelocitySolutionEcef[3]);
-
-        Log.d(
-                TAG,
-                "Velocity Solution in ECEF Mps: "
-                        + positionVelocitySolutionEcef[4]
-                        + " "
-                        + positionVelocitySolutionEcef[5]
-                        + " "
-                        + positionVelocitySolutionEcef[6]);
-        Log.d(TAG, "Estimated Receiver clock offset rate in mps: " + positionVelocitySolutionEcef[7]);
+//        Log.d(
+//                TAG,
+//                "Least Square Position Solution in ECEF meters: "
+//                        + positionVelocitySolutionEcef[0]
+//                        + " "
+//                        + positionVelocitySolutionEcef[1]
+//                        + " "
+//                        + positionVelocitySolutionEcef[2]);
+//        Log.d(TAG, "Estimated Receiver clock offset in meters: " + positionVelocitySolutionEcef[3]);
+//
+//        Log.d(
+//                TAG,
+//                "Velocity Solution in ECEF Mps: "
+//                        + positionVelocitySolutionEcef[4]
+//                        + " "
+//                        + positionVelocitySolutionEcef[5]
+//                        + " "
+//                        + positionVelocitySolutionEcef[6]);
+//        Log.d(TAG, "Estimated Receiver clock offset rate in mps: " + positionVelocitySolutionEcef[7]);
     }
 
     /**

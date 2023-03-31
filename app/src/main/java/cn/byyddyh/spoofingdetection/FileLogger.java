@@ -31,7 +31,7 @@ public class FileLogger {
     private static final String ERROR_WRITING_FILE = "Problem writing to file.";
     private static final String COMMENT_START = "# ";
     private static final char RECORD_DELIMITER = ',';
-    private static final String VERSION_TAG = "Version: ";
+    private static final String VERSION_TAG = "Version: 1.4.0.0, Platform: HUAWEI MATE30";
 
     private static final int MAX_FILES_STORED = 100;
     private static final int MINIMUM_USABLE_FILE_SIZE_BYTES = 1000;
@@ -268,12 +268,57 @@ public class FileLogger {
             if (mFileWriter == null) {
                 return;
             }
+
+            // 写标题
             StringBuilder builder = new StringBuilder(str);
 
+            // 写数据
             for (double datum : data) {
                 builder.append(RECORD_DELIMITER);
                 builder.append(datum);
             }
+
+            try {
+                mFileWriter.write(builder.toString());
+                mFileWriter.newLine();
+            } catch (IOException e) {
+                logException(ERROR_WRITING_FILE, e);
+            }
+        }
+    }
+
+    /**
+     * 保存IMU速度信息
+     * @param values    加速度
+     * @param vel_mea   速度
+     * @param pos_mea   位置
+     * @param delta_timestamp_sec 时间间隔
+     */
+    public void storeIMUData(double[] values, double[] vel_mea, double[] pos_mea, double delta_timestamp_sec) {
+        synchronized (mFileLock) {
+            if (mFileWriter == null) {
+                return;
+            }
+
+            // 写标题头
+            StringBuilder builder = new StringBuilder("Imu_data");
+            // 写加速度
+            for (double datum : values) {
+                builder.append(RECORD_DELIMITER);
+                builder.append(datum);
+            }
+            // 写速度
+            for (double datum : vel_mea) {
+                builder.append(RECORD_DELIMITER);
+                builder.append(datum);
+            }
+            // 写位置
+            for (double datum : pos_mea) {
+                builder.append(RECORD_DELIMITER);
+                builder.append(datum);
+            }
+            builder.append(RECORD_DELIMITER);
+            builder.append(delta_timestamp_sec);
 
             try {
                 mFileWriter.write(builder.toString());

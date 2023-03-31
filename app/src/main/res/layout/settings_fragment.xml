@@ -13,17 +13,141 @@
         android:layout_height="wrap_content">
 
         <Button
-            android:id="@+id/start_settings"
-            android:text="Start"
+            android:id="@+id/single_settings"
+            android:text="SINGLE"
             android:layout_width="0dp"
             android:layout_weight="1"
             android:layout_height="wrap_content" />
+
+        <Button
+            android:id="@+id/multiple_settings"
+            android:text="MULTIPLE"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content" />
+
         <Button
             android:id="@+id/end_settings"
             android:text="END"
             android:layout_width="0dp"
             android:layout_weight="1"
             android:layout_height="wrap_content" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/Edit_LLA_Adress"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="@color/white"
+        android:text="Reference Location"
+        android:textAppearance="?android:attr/textAppearanceMedium"
+        tools:ignore="DuplicateIds" />
+
+    <LinearLayout
+        android:orientation="horizontal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <EditText
+            android:id="@+id/Lat"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:ems="10"
+            android:inputType="textPersonName"
+            android:text="32.05806602" />
+
+        <EditText
+            android:id="@+id/Lon"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:ems="10"
+            android:inputType="textPersonName"
+            android:text="118.7888798" />
+
+        <EditText
+            android:id="@+id/Alt"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:ems="10"
+            android:inputType="textPersonName"
+            android:text="83.24929773" />
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:orientation="horizontal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <Button
+            android:id="@+id/binding"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:text="LLA BINDING"
+            tools:ignore="DuplicateIds" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:orientation="horizontal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <Button
+            android:id="@+id/ipGenerate"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:text="Ip Generate" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/Edit_IP_Adress"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="@color/white"
+        android:text="Server IP"
+        android:textAppearance="?android:attr/textAppearanceMedium"
+        tools:ignore="DuplicateIds" />
+
+    <LinearLayout
+        android:orientation="horizontal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <EditText
+            android:id="@+id/Neighbor1"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:ems="10"
+            android:inputType="textPersonName"
+            android:text="Server IP" />
+
+        <Button
+            android:id="@+id/ip_binding"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:text="Client BINDING"
+            tools:ignore="DuplicateIds" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:orientation="horizontal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <Button
+            android:id="@+id/ip_binding"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:text="Server BINDING"
+            tools:ignore="DuplicateIds" />
     </LinearLayout>
 
     <LinearLayout
@@ -40,14 +164,14 @@
             tools:ignore="DuplicateIds" />
     </LinearLayout>
 
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="8"
-        android:text="Settings"
-        android:textSize="50dp"
-        android:gravity="center"
-        android:textColor="#fff"
-        tools:ignore="MissingConstraints" />
+<!--    <TextView-->
+<!--        android:layout_width="match_parent"-->
+<!--        android:layout_height="0dp"-->
+<!--        android:layout_weight="8"-->
+<!--        android:text="Settings"-->
+<!--        android:textSize="50dp"-->
+<!--        android:gravity="center"-->
+<!--        android:textColor="#fff"-->
+<!--        tools:ignore="MissingConstraints" />-->
 
 </LinearLayout>

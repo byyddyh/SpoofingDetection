@@ -1,43 +1,44 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
-    android:orientation="vertical"
-    android:gravity="center"
-    android:background="@color/lightGreen"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="@color/lightGreen"
+    android:gravity="center"
+    android:orientation="vertical">
 
     <LinearLayout
-        android:orientation="horizontal"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content">
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
 
         <Button
             android:id="@+id/button_start"
-            android:text="Log Begin"
             android:layout_width="0dp"
+            android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:layout_height="wrap_content" />
+            android:text="Log Begin" />
+
         <Button
             android:id="@+id/button_end"
-            android:text="Log Stop"
             android:layout_width="0dp"
+            android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:layout_height="wrap_content" />
+            android:text="Log Stop" />
     </LinearLayout>
 
     <TableLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:clickable="false"
-        android:paddingLeft="8dp"
-        android:paddingStart="8dp">
+        android:paddingStart="8dp"
+        android:paddingLeft="8dp">
 
         <TableRow
             android:id="@+id/tableRow1"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_weight="1" >
+            android:layout_weight="1">
 
 
             <TextView
@@ -54,7 +55,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:gravity="center_horizontal"
-                android:text="@string/X"
+                android:text="N"
                 android:textAppearance="?android:attr/textAppearanceSmall"
                 android:textColor="@color/green" />
 
@@ -64,7 +65,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:gravity="center_horizontal"
-                android:text="@string/Y"
+                android:text="E"
                 android:textAppearance="?android:attr/textAppearanceSmall"
                 android:textColor="@color/red" />
 
@@ -74,7 +75,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:gravity="center_horizontal"
-                android:text="@string/Z"
+                android:text="D"
                 android:textAppearance="?android:attr/textAppearanceSmall"
                 android:textColor="@color/blue" />
 
@@ -85,7 +86,7 @@
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_marginTop="2dp"
-            android:layout_weight="1" >
+            android:layout_weight="1">
 
             <TextView
                 android:id="@+id/CheckBox_Acc"
@@ -115,6 +116,7 @@
                 android:text="@string/Zero_Value"
                 android:textAppearance="?android:attr/textAppearanceSmall"
                 android:textColor="@color/red" />
+
             <TextView
                 android:id="@+id/Z_Acc"
                 android:layout_width="0dp"
@@ -128,10 +130,11 @@
         </TableRow>
 
         <TableRow
-        android:id="@+id/TableRow3"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1" >
+            android:id="@+id/TableRow3"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            tools:ignore="DuplicateIds">
 
             <TextView
                 android:id="@+id/CheckBox_Vel"
@@ -173,13 +176,13 @@
                 android:textAppearance="?android:attr/textAppearanceSmall"
                 android:textColor="@color/blue" />
 
-    </TableRow>
+        </TableRow>
 
         <TableRow
-            android:id="@+id/TableRow3"
+            android:id="@+id/TableRow4"
             android:layout_width="match_parent"
             android:layout_height="0dp"
-            android:layout_weight="1" >
+            android:layout_weight="1">
 
             <TextView
                 android:id="@+id/CheckBox_Pos"

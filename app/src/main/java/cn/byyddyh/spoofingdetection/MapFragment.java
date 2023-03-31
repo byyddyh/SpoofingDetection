@@ -1,6 +1,8 @@
 package cn.byyddyh.spoofingdetection;
 
 import android.annotation.SuppressLint;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
@@ -19,9 +21,11 @@ import com.amap.api.location.AMapLocationClient;
 import com.amap.api.location.AMapLocationClientOption;
 import com.amap.api.location.AMapLocationListener;
 import com.amap.api.maps.AMap;
+import com.amap.api.maps.CoordinateConverter;
 import com.amap.api.maps.LocationSource;
 import com.amap.api.maps.MapView;
 import com.amap.api.maps.UiSettings;
+import com.amap.api.maps.model.BitmapDescriptor;
 import com.amap.api.maps.model.BitmapDescriptorFactory;
 import com.amap.api.maps.model.LatLng;
 import com.amap.api.maps.model.Marker;
@@ -51,6 +55,10 @@ public class MapFragment extends Fragment implements AMapLocationListener, Locat
 
     private RealTimePositionVelocityCalculator mRealTimePositionVelocityCalculator;
 
+    // 经纬度转换器
+    private CoordinateConverter converter;
+
+
     @SuppressLint("MissingInflatedId")
     @Nullable
     @Override
@@ -68,6 +76,8 @@ public class MapFragment extends Fragment implements AMapLocationListener, Locat
 
         // 检查Android版本
         checkingAndroidVersion();
+
+        converter = new CoordinateConverter(requireActivity().getApplicationContext());
 
         return inflate;
     }
@@ -159,6 +169,8 @@ public class MapFragment extends Fragment implements AMapLocationListener, Locat
     //声明AMapLocationClientOption对象
     public AMapLocationClientOption mLocationOption = null;
 
+    private BitmapDescriptor bitmapDescriptor = null;
+
     /**
      * 初始化定位
      */
@@ -197,14 +209,27 @@ public class MapFragment extends Fragment implements AMapLocationListener, Locat
     public void onLocationChanged(AMapLocation aMapLocation) {
         if (aMapLocation != null) {
             if (aMapLocation.getErrorCode() == 0) {
-                aMapLocation.setLatitude(MainActivity.lla_mea_temp[0]);
-                aMapLocation.setLongitude(MainActivity.lla_mea_temp[1]);
+                if (converter == null) {
+                    return;
+                }
 
-                StringBuffer stringBuffer = new StringBuffer();
-                stringBuffer.append("纬度:").append(aMapLocation.getLatitude()).append("\n");
-                stringBuffer.append("经度:").append(aMapLocation.getLongitude()).append("\n");
+                // CoordType.GPS 待转换坐标类型
+                converter.from(CoordinateConverter.CoordType.GPS);
+                // sourceLatLng待转换坐标点 LatLng类型
+                LatLng sourceLatLng = new LatLng(MainActivity.llaMeasure[0], MainActivity.llaMeasure[1]);
+                converter.coord(sourceLatLng);
+                // 执行转换操作
+                LatLng latLng = converter.convert();
 
-                showMsg(stringBuffer.toString());
+                aMapLocation.setLatitude(latLng.latitude);
+                aMapLocation.setLongitude(latLng.longitude);
+
+                addMarker(latLng.latitude, latLng.latitude);
+
+                String stringBuffer = "纬度:" + aMapLocation.getLatitude() + "\n" +
+                        "经度:" + aMapLocation.getLongitude() + "\n";
+
+                showMsg(stringBuffer);
 
                 // 显示地图定位结果
                 if (mListener != null) {
@@ -231,7 +256,7 @@ public class MapFragment extends Fragment implements AMapLocationListener, Locat
         aMap = mapView.getMap();
 
         //设置最小缩放等级为16 ，缩放级别范围为[3, 20]
-        aMap.setMinZoomLevel(18);
+        aMap.setMinZoomLevel(20);
         // 自定义定位蓝点图标
         myLocationStyle.myLocationIcon(BitmapDescriptorFactory.fromResource(R.drawable.gps_point));
         // 自定义精度范围的圆形边框颜色  都为0则透明
@@ -240,21 +265,24 @@ public class MapFragment extends Fragment implements AMapLocationListener, Locat
         myLocationStyle.strokeWidth(0);
         // 设置圆形的填充颜色  都为0则透明
         myLocationStyle.radiusFillColor(Color.argb(0, 0, 0, 0));
-
         //设置定位蓝点的Style
         aMap.setMyLocationStyle(myLocationStyle);
-
         // 设置定位监听
         aMap.setLocationSource(this);
         // 设置为true表示显示定位层并可触发定位，false表示隐藏定位层并不可触发定位，默认是false
         aMap.setMyLocationEnabled(true);
-
         //实例化UiSettings类对象
         mUiSettings = aMap.getUiSettings();
         //隐藏缩放按钮
         mUiSettings.setZoomControlsEnabled(false);
         //显示比例尺 默认不显示
         mUiSettings.setScaleControlsEnabled(true);
+
+        // 对轨迹图标大小进行调整
+        Bitmap originalBitmap = BitmapFactory.decodeResource(getResources(), R.mipmap.position);
+        Bitmap scaledBitmap = Bitmap.createScaledBitmap(originalBitmap, 35, 35, false);
+        bitmapDescriptor = BitmapDescriptorFactory.fromBitmap(scaledBitmap);
+//        markerOptions.icon(bitmapDescriptor).anchor(0.5f, 0.5f);
     }
 
     /**
@@ -291,30 +319,23 @@ public class MapFragment extends Fragment implements AMapLocationListener, Locat
         marker.remove();
     }
 
-
-    private int markerCount = 0;
-    private final int markerSize = 50;
-    private boolean removeFlag = false;
-    private final Marker[] markers = new Marker[markerSize];
-
     /**
      * 添加标记点
      */
     public void addMarker(double latDegRaw, double lngDegRaw) {
-        if (markerCount == markerSize) {
-            markerCount = 0;
-            removeFlag = true;
+        if (aMap != null) {
+            // CoordType.GPS 待转换坐标类型
+            converter.from(CoordinateConverter.CoordType.GPS);
+            // sourceLatLng待转换坐标点 LatLng类型
+            LatLng sourceLatLng = new LatLng(latDegRaw, lngDegRaw);
+            converter.coord(sourceLatLng);
+            // 执行转换操作
+            LatLng latLng = converter.convert();
+            MarkerOptions markerOptions = new MarkerOptions().position(latLng).snippet("DefaultMarker");
+            markerOptions.icon(bitmapDescriptor);
+            aMap.addMarker(markerOptions);
+//        Marker marker = aMap.addMarker(markerOptions);
         }
-
-        if (removeFlag) {
-            markers[markerCount].remove();
-        }
-
-        LatLng latLng = new LatLng(latDegRaw, lngDegRaw);
-        MarkerOptions markerOptions = new MarkerOptions().position(latLng).snippet("DefaultMarker");
-        Marker marker = aMap.addMarker(markerOptions);
-        markers[markerCount] = marker;
-        markerCount++;
     }
 
     public void setPositionVelocityCalculator(RealTimePositionVelocityCalculator mRealTimePositionVelocityCalculator) {

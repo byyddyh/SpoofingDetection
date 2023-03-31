@@ -19,22 +19,19 @@ import android.location.GnssNavigationMessage;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
-import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.Settings;
+import android.util.Log;
 
 import com.amap.api.location.AMapLocationClient;
 import com.amap.api.maps.MapsInitializer;
 import com.amap.api.services.core.ServiceSettings;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 
-import java.io.IOException;
 import java.util.Random;
 
-import cn.byyddyh.spoofingdetection.process.GetEphemeris;
-import cn.byyddyh.spoofingdetection.process.dataModel.GNSSGpsEph;
 import cn.byyddyh.spoofingdetection.pseudorange.Ecef2EnuConverter;
 import cn.byyddyh.spoofingdetection.pseudorange.Ecef2LlaConverter;
 import cn.byyddyh.spoofingdetection.pseudorange.Lla2EcefConverter;
@@ -49,7 +46,11 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
     private static final SettingsFragment settingsFragment;
     @SuppressLint("StaticFieldLeak")
     private static final LogFragment logFragment;
-    private static final MapFragment mapFragment;
+    public static final MapFragment mapFragment;
+    /**
+     * 判断是否使用抗GPS欺骗策略
+     */
+    public static boolean isUsedAntiSpoof;
 
     /**
      * 传感器数据
@@ -57,7 +58,6 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
     public static SensorManager mSensor_Toggle;
     public static SensorManager mSensor_Stream;
     public static LocationManager mLocationmanager;
-    private GNSSGpsEph nasaHourlyEphemeris;
     public static boolean ephemerisFlag = true;
     private GnssMeasurementsEvent.Callback gnssMeasurementsEventListener;
     private GnssNavigationMessage.Callback gnssNavigationMessageListener;
@@ -71,7 +71,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
     @SuppressLint("StaticFieldLeak")
     public static FileLogger fileLogger;
 
-    private RealTimePositionVelocityCalculator mRealTimePositionVelocityCalculator;
+    public static RealTimePositionVelocityCalculator mRealTimePositionVelocityCalculator;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -143,31 +143,6 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
                 @Override
                 public void onGnssMeasurementsReceived(GnssMeasurementsEvent eventArgs) {
                     mRealTimePositionVelocityCalculator.onGnssMeasurementsReceived(eventArgs);
-//                    // 初始GNSS测量值用于定位解算
-//                    try {
-//                        // 1. 解析星历数据
-//                        if (ephemerisFlag && nasaHourlyEphemeris == null) {
-//                            analysisEphemeris();
-//                        } else if (ephemerisFlag) {
-//                            // 获取原始导航数据
-//                            GNSSRaw gnssRaw = ProcessUtils.filterRawData(eventArgs.getMeasurements(), eventArgs.getClock());
-//
-//                            if (gnssRaw == null || gnssRaw.Svid.size() < 4) {
-//                                return;
-//                            }
-//
-//                            // 对数据进行处理，计算伪距值，使用最小二乘法进行计算
-//                            GNSSMeas gnssMeas = PseudorangeProcessUtils.processGnssMeas(gnssRaw);
-//
-//                            // 计算WLS位置和速度
-//                            GNSSPosition.gpsWlsPvt(gnssMeas, nasaHourlyEphemeris);
-//
-//                            LogFragment.logText("text", "导航卫星数据" + eventArgs.getMeasurements().size());
-//                        }
-//
-//                    } catch (Exception e) {
-//                        Log.d("exception", e.getMessage());
-//                    }
                 }
             };
         }
@@ -204,32 +179,11 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
         mapFragment.destroy();
     }
 
-    /**
-     * 解析星历数据
-     */
-    private void analysisEphemeris() {
-        hasPermission();
-        try {
-            nasaHourlyEphemeris = GetEphemeris.getNasaHourlyEphemeris();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
     private boolean isRefuse;
 
-    private void hasPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !isRefuse) {// android 11  且 不是已经被拒绝
-            // 先判断有没有权限
-            if (!Environment.isExternalStorageManager()) {
-                Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
-                intent.setData(Uri.parse("package:" + getPackageName()));
-                startActivityForResult(intent, 1024);
-            }
-        }
-    }
-
-    // 带回授权结果
+    /**
+     * 带回授权结果
+     */
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -252,9 +206,11 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
     public static double[] mLin_Acc_Buffer = new double[3];
     public static double[] pos_mea = new double[3];
     public static double[] vel_mea = new double[3];
+    private static final int acc_len = 200;
+    public static double[][] acc_mea = new double[acc_len][3];
+    public static double[] acc_mea_temp = new double[3];
     private static int acc_count = 0;
-    private static int acc_len = 200;
-    private static double delta_timestamp_sec = 0;
+    private static int display_count = 0;
 
     /**
      * 软件传感器监听器
@@ -269,23 +225,46 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
             double timestamp_sec = event.timestamp * NS2S;
 
             if (event.sensor.getType() == Sensor.TYPE_LINEAR_ACCELERATION) {
-                logFragment.setAccView(event.values);
                 for (int i = 0; i < event.values.length; i++) {
                     mLin_Acc_Buffer[i] = event.values[i];
                 }
-                delta_timestamp_sec = timestamp_sec - mLin_Acc_Time;
+
+                double delta_timestamp_sec = timestamp_sec - mLin_Acc_Time;
                 mLin_Acc_Time = timestamp_sec;
 
-                // 进行位置计算
                 if (acc_count < acc_len) {
+                    // 记录数据
+                    System.arraycopy(mLin_Acc_Buffer, 0, acc_mea[acc_count], 0, 3);
                     acc_count++;
+
+                    // 计算加速度均值
+                    if (acc_count == acc_len - 1) {
+                        for (int i = 100; i < acc_len; i++) {
+                            for (int j = 0; j < 3; j++) {
+                                acc_mea_temp[j] = acc_mea_temp[j] + acc_mea[i][j] / (acc_len - 100);
+                            }
+                        }
+
+                        acc_mea_temp[0] = 0;
+                        acc_mea_temp[1] = 0;
+                    }
                 } else {
                     for (int i = 0; i < 3; i++) {
-                        vel_mea[i] = vel_mea[i] + (mLin_Acc_Buffer[i]) * delta_timestamp_sec;
+                        if (i == 2) {
+                            mLin_Acc_Buffer[i] = (mLin_Acc_Buffer[i] - acc_mea_temp[i]) / 10;
+                        }
+                        vel_mea[i] = vel_mea[i] + mLin_Acc_Buffer[i] * delta_timestamp_sec;
                         pos_mea[i] = pos_mea[i] + vel_mea[i] * delta_timestamp_sec;
+                    }
+
+                    display_count++;
+                    if (display_count == 10) {
+                        display_count = 0;
+                        logFragment.setAccView(mLin_Acc_Buffer);
                         logFragment.setVelView(vel_mea);
                         logFragment.setPosView(pos_mea, 1);
                     }
+                    fileLogger.storeIMUData(mLin_Acc_Buffer, vel_mea, pos_mea, delta_timestamp_sec);
                 }
             }
         }
@@ -304,7 +283,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
 
         try {
             mSensor_Stream.registerListener(mySoftwareSensorListener,
-                    mSensor_Stream.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION), SensorManager.SENSOR_DELAY_NORMAL);
+                    mSensor_Stream.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION), SensorManager.SENSOR_DELAY_FASTEST);
         } catch (Exception e) {
             e.printStackTrace();
             return;
@@ -335,48 +314,43 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
     private int init_gps_count = 0;
     private int init_gps_len = 5;
     private int gps_count = 0;
-    public static double[] lla_mea = new double[3];        // 接收机位置的平均值
-    public static double[] init_radians_mea = new double[3];        // 接收机位置的平均值
+    public static double[] reference_radians_mea = new double[3];        // 接收机位置的平均值
     public static double[] init_ecef_Meters;        // 接收机位置的平均值
     public static Ecef2EnuConverter.EnuValues enuValues;        // 接收机位置的平均值
+    private boolean isPosSettings = false;
 
-    public static double[] lla_mea_temp = new double[3];
+    public static double[] llaMeasure = new double[3];
 
     /** GPS传感器数据读取，用于设定初值 */
     @Override
     public void onLocationChanged(@NonNull Location location) {
-        lla_mea_temp[0] = location.getLatitude();
-        lla_mea_temp[1] = location.getLongitude();
-//        if (mapFragment != null && MapFragment.aMap != null) {
-//            mapFragment.addMarker(location.getLatitude(), location.getLongitude());
-//        }
+        llaMeasure[0] = location.getLatitude();
+        llaMeasure[1] = location.getLongitude();
+//        mapFragment.addMarker(location.getLatitude() , location.getLongitude());
 
         if (init_gps_count >= init_gps_len) {
             int gps_len = 10;
-            if (gps_count == gps_len) {
-                mRealTimePositionVelocityCalculator.mPseudorangePositionVelocityFromRealTimeEvents.setReferencePosition((int) (location.getLatitude() * 1E7),
-                        (int) (location.getLongitude() * 1E7),
-                        (int) (location.getAltitude() * 1E7));
-                for (int i = 0; i < 3; i++) {
-                    vel_mea[i] = 0;
-                    pos_mea[i] = 0;
-                }
-                ++gps_count;
-            } else if (gps_count < gps_len){
-                ++gps_count;
-                lla_mea[0] += location.getLatitude();
-                lla_mea[1] += location.getLongitude();
-                lla_mea[2] += location.getAltitude();
-                if (gps_count == gps_len) {
-                    for (int i = 0; i < 3; i++) {
-                        lla_mea[i] = lla_mea[i] / gps_len;
-                    }
-                    init_radians_mea[0] = Math.toRadians(lla_mea[0]);
-                    init_radians_mea[1] = Math.toRadians(lla_mea[1]);
-                    init_ecef_Meters = Lla2EcefConverter.convertFromLlaToEcefMeters(new Ecef2LlaConverter.GeodeticLlaValues(init_radians_mea[0], init_radians_mea[1], init_radians_mea[2]));
+            if (gps_count >= gps_len) {
+                if (!isPosSettings) {
+                    isPosSettings = true;
+                    reference_radians_mea[0] = Math.toRadians(location.getLatitude());
+                    reference_radians_mea[1] = Math.toRadians(location.getLongitude());
+                    reference_radians_mea[2] = location.getAltitude();
+                    init_ecef_Meters = Lla2EcefConverter.convertFromLlaToEcefMeters(new Ecef2LlaConverter.GeodeticLlaValues(reference_radians_mea[0], reference_radians_mea[1], reference_radians_mea[2]));
                     enuValues = Ecef2EnuConverter.convertEcefToEnu(init_ecef_Meters[0], init_ecef_Meters[1], init_ecef_Meters[2],
-                            init_radians_mea[0], init_radians_mea[1]);
+                            reference_radians_mea[0], reference_radians_mea[1]);
+                    mRealTimePositionVelocityCalculator.mPseudorangePositionVelocityFromRealTimeEvents.setReferencePosition(
+                            (int) (location.getLatitude() * 1E7),
+                            (int) (location.getLongitude() * 1E7),
+                            (int) (location.getAltitude() * 1E7));
+                    for (int i = 0; i < 3; i++) {
+                        vel_mea[i] = 0;
+                        pos_mea[i] = 0;
+                    }
                 }
+                ++gps_count;
+            } else {
+                ++gps_count;
             }
         } else {
             ++init_gps_count;

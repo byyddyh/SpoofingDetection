@@ -58,4 +58,6 @@
     <string name="error_gps_outofservice">Warning: GPS Out Of Service. GPS Listener stops. A current Stream will lack GPS Data.</string>
     <string name="Pending">Pending</string>
     <string name="Bat_Temp">Battery Temp.</string>
+    <string name="lon">Lon</string>
+    <string name="lat">Lat</string>
 </resources>

@@ -78,20 +78,14 @@ public class LogFragment extends Fragment {
         uiFragmentComponent = new UIFragmentComponent();
         fileLogger.setUiComponent(uiFragmentComponent);
 
-        buttonStart.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                writableFlag = true;
-                fileLogger.startNewLog();
-            }
+        buttonStart.setOnClickListener(view -> {
+            writableFlag = true;
+            fileLogger.startNewLog();
         });
 
-        buttonEnd.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                writableFlag = false;
-                fileLogger.send();
-            }
+        buttonEnd.setOnClickListener(view -> {
+            writableFlag = false;
+            fileLogger.send();
         });
 
         // 开启读取传感器
@@ -119,8 +113,6 @@ public class LogFragment extends Fragment {
             activity.runOnUiThread(
                     () -> {
                         logView.append(builder);
-                        SharedPreferences sharedPreferences = PreferenceManager.
-                                getDefaultSharedPreferences(getActivity());
                         Editable editable = logView.getEditableText();
                         int length = editable.length();
                         if (length > MAX_LENGTH) {
@@ -141,7 +133,7 @@ public class LogFragment extends Fragment {
     }
 
     @SuppressLint("DefaultLocale")
-    public void setAccView(float[] values) {
+    public void setAccView(double[] values) {
         for (int i = 0; i < values.length; i++) {
             mAcc[i].setText(String.format("%6.3f", values[i]));
         }
