@@ -120,20 +120,20 @@ public class PseudorangePositionVelocityFromRealTimeEvents {
             {0, 0, 0, 0, 0, 1}
     });
     private RealMatrix matrixR = MatrixUtils.createRealMatrix(new double[][]{
-            {0.1, 0, 0, 0, 0, 0},
-            {0, 0.1, 0, 0, 0, 0},
-            {0, 0, 0.1, 0, 0, 0},
-            {0, 0, 0, 0.1, 0, 0},
-            {0, 0, 0, 0, 0.1, 0},
-            {0, 0, 0, 0, 0, 0.1}
+            {0.05, 0, 0, 0, 0, 0},
+            {0, 0.05, 0, 0, 0, 0},
+            {0, 0, 0.05, 0, 0, 0},
+            {0, 0, 0, 0.005, 0, 0},
+            {0, 0, 0, 0, 0.005, 0},
+            {0, 0, 0, 0, 0, 0.01}
     });
     private RealMatrix matrixQ = MatrixUtils.createRealMatrix(new double[][]{
-            {100, 0, 0, 0, 0, 0},
-            {0, 100, 0, 0, 0, 0},
-            {0, 0, 100, 0, 0, 0},
-            {0, 0, 0, 100, 0, 0},
-            {0, 0, 0, 0, 100, 0},
-            {0, 0, 0, 0, 0, 100}
+            {2, 0, 0, 0, 0, 0},
+            {0, 2, 0, 0, 0, 0},
+            {0, 0, 50, 0, 0, 0},
+            {0, 0, 0, 0.005, 0, 0},
+            {0, 0, 0, 0, 0.005, 0},
+            {0, 0, 0, 0, 0, 0.04}
     });
     private RealMatrix matrixP = MatrixUtils.createRealMatrix(new double[][]{
             {1, 0, 0, 0, 0, 0},
@@ -153,8 +153,8 @@ public class PseudorangePositionVelocityFromRealTimeEvents {
     });
 
     public static Ecef2EnuConverter.EnuValues initEnuValues;
-    public static double[] initlla = new double[3];
 
+    private int validCount = 0;         // 计数器
     /**
      * Computes Weighted least square position and velocity solutions from a received {@link
      * GnssMeasurementsEvent} and store the result in {@link
@@ -177,7 +177,7 @@ public class PseudorangePositionVelocityFromRealTimeEvents {
             mUsefulSatellitesToTowNs[i] = null;
         }
 
-        GnssClock gnssClock = null;
+        GnssClock gnssClock;
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
             gnssClock = event.getClock();
             mArrivalTimeSinceGpsEpochNs = gnssClock.getTimeNanos() - gnssClock.getFullBiasNanos();
@@ -329,20 +329,6 @@ public class PseudorangePositionVelocityFromRealTimeEvents {
                         GpsNavigationMessageStore.MAX_NUMBER_OF_SATELLITES /*length of elements*/
                 );
 
-//                Log.d(TAG,
-//                        "Position Uncertainty ENU Meters :"
-//                                + mPositionVelocityUncertaintyEnu[0]
-//                                + " "
-//                                + mPositionVelocityUncertaintyEnu[1]
-//                                + " "
-//                                + mPositionVelocityUncertaintyEnu[2]);
-//                LogFragment.logText("Data", "Position Uncertainty ENU Meters: "
-//                        + mPositionVelocityUncertaintyEnu[0]
-//                        + " "
-//                        + mPositionVelocityUncertaintyEnu[1]
-//                        + " "
-//                        + mPositionVelocityUncertaintyEnu[2]);
-
                 MainActivity.mapFragment.addMarker(mPositionSolutionLatLngDeg[0], mPositionSolutionLatLngDeg[1]);
                 Log.d(
                         TAG,
@@ -397,54 +383,61 @@ public class PseudorangePositionVelocityFromRealTimeEvents {
                                     mVelocitySolutionEnuMps[2]});
                 }
 
-                if (initEnuValues == null) {
-                    initEnuValues = Ecef2EnuConverter.convertEcefToEnu(
-                            positionVelocitySolutionEcef[0], positionVelocitySolutionEcef[1], positionVelocitySolutionEcef[2],
-                            SettingsFragment.latitude, SettingsFragment.longitude
-                    );
-                    initlla[0] = latLngAlt.latitudeRadians;
-                    initlla[1] = latLngAlt.longitudeRadians;
-                    initlla[2] = latLngAlt.altitudeMeters;
-                } else {
-                    RealMatrix temp = MatrixUtils.createRealMatrix(new double[][]{
-                            {MainActivity.pos_mea[0], MainActivity.pos_mea[1], MainActivity.pos_mea[2],
-                                    MainActivity.vel_mea[0], MainActivity.vel_mea[1], MainActivity.vel_mea[2]}
-                    });
-                    Ecef2EnuConverter.EnuValues enuValues = Ecef2EnuConverter.convertEcefToEnu(
-                            positionVelocitySolutionEcef[0], positionVelocitySolutionEcef[1], positionVelocitySolutionEcef[2],
-                            SettingsFragment.latitude, SettingsFragment.longitude);
-                    RealMatrix tempGNSS = MatrixUtils.createRealMatrix(new double[][]{
-                            {enuValues.enuEast - initEnuValues.enuEast, enuValues.enuNorth - initEnuValues.enuNorth, enuValues.enuUP - initEnuValues.enuUP,
-                                    mVelocitySolutionEnuMps[0], mVelocitySolutionEnuMps[1], mVelocitySolutionEnuMps[2]}
-                    });
+                // 进行数据融合需要GPS收敛的次数
+                int validLen = 30;
+                if (validCount >= validLen) {
+                    if (initEnuValues == null) {
+                        initEnuValues = Ecef2EnuConverter.convertEcefToEnu(
+                                positionVelocitySolutionEcef[0], positionVelocitySolutionEcef[1], positionVelocitySolutionEcef[2],
+                                MainActivity.reference_radians_mea[0], MainActivity.reference_radians_mea[1]
+                        );
+                    } else {
+                        RealMatrix temp = MatrixUtils.createRealMatrix(new double[][]{
+                                {MainActivity.pos_mea[0], MainActivity.pos_mea[1], MainActivity.pos_mea[2],
+                                        MainActivity.vel_mea[0], MainActivity.vel_mea[1], MainActivity.vel_mea[2]}
+                        });
+                        Ecef2EnuConverter.EnuValues enuValues = Ecef2EnuConverter.convertEcefToEnu(
+                                positionVelocitySolutionEcef[0], positionVelocitySolutionEcef[1], positionVelocitySolutionEcef[2],
+                                MainActivity.reference_radians_mea[0], MainActivity.reference_radians_mea[1]);
+                        RealMatrix tempGNSS = MatrixUtils.createRealMatrix(new double[][]{
+                                {enuValues.enuEast - initEnuValues.enuEast, enuValues.enuNorth - initEnuValues.enuNorth, enuValues.enuUP - initEnuValues.enuUP,
+                                        mVelocitySolutionEnuMps[0], mVelocitySolutionEnuMps[1], mVelocitySolutionEnuMps[2]}
+                        });
 
-                    matrixP = matrixA.multiply(matrixP.transpose()).multiply(matrixA.transpose()).add(matrixR);
-                    RealMatrix K = matrixP.multiply(matrixC.transpose()).multiply(MatrixUtils.inverse(
-                            matrixC.multiply(matrixP).multiply(matrixC.transpose()).add(matrixQ)
-                    ));
+                        // 遍历，如果误差大于10m，则不进行融合
+                        boolean isContinue = true;
+                        for (int i = 0; i < 1; i++) {
+                            for (int j = 0; j < 6; j++) {
+                                if (tempGNSS.getEntry(i, j) > 10) {
+                                    isContinue = false;
+                                }
+                            }
+                        }
 
-                    temp = temp.transpose().add(K.multiply(tempGNSS.transpose().subtract(matrixC.multiply(temp.transpose()))));
-                    temp = temp.transpose();
+                        if (isContinue) {
+                            matrixP = matrixA.multiply(matrixP.transpose()).multiply(matrixA.transpose()).add(matrixR);
+                            RealMatrix K = matrixP.multiply(matrixC.transpose()).multiply(MatrixUtils.inverse(
+                                    matrixC.multiply(matrixP).multiply(matrixC.transpose()).add(matrixQ)
+                            ));
 
-                    matrixP = (eyeSix.subtract(K.multiply(matrixC))).multiply(matrixP);
+                            temp = temp.transpose().add(K.multiply(tempGNSS.transpose().subtract(matrixC.multiply(temp.transpose()))));
+                            temp = temp.transpose();
 
-                    for (int i = 0; i < 3; i++) {
-                        MainActivity.pos_mea[i] = temp.getEntry(0, i);
-                        MainActivity.vel_mea[i] = temp.getEntry(0, i + 3);
+                            matrixP = (eyeSix.subtract(K.multiply(matrixC))).multiply(matrixP);
+
+                            for (int i = 0; i < 3; i++) {
+                                MainActivity.pos_mea[i] = temp.getEntry(0, i);
+                                MainActivity.vel_mea[i] = temp.getEntry(0, i + 3);
+                            }
+                        }
                     }
+                } else {
+                    validCount++;
                 }
 
                 mPositionVelocityUncertaintyEnu[3] = positionVelocityUncertaintyEnu[3];
                 mPositionVelocityUncertaintyEnu[4] = positionVelocityUncertaintyEnu[4];
                 mPositionVelocityUncertaintyEnu[5] = positionVelocityUncertaintyEnu[5];
-
-//                Log.d(TAG,
-//                        "Velocity Uncertainty ENU Mps :"
-//                                + mPositionVelocityUncertaintyEnu[3]
-//                                + " "
-//                                + mPositionVelocityUncertaintyEnu[4]
-//                                + " "
-//                                + mPositionVelocityUncertaintyEnu[5]);
             }
             mFirstUsefulMeasurementSet = false;
         } else {
@@ -517,25 +510,6 @@ public class PseudorangePositionVelocityFromRealTimeEvents {
                 positionVelocityUncertaintyEnu,
                 pseudorangeResidualMeters);
 
-//        Log.d(
-//                TAG,
-//                "Least Square Position Solution in ECEF meters: "
-//                        + positionVelocitySolutionEcef[0]
-//                        + " "
-//                        + positionVelocitySolutionEcef[1]
-//                        + " "
-//                        + positionVelocitySolutionEcef[2]);
-//        Log.d(TAG, "Estimated Receiver clock offset in meters: " + positionVelocitySolutionEcef[3]);
-//
-//        Log.d(
-//                TAG,
-//                "Velocity Solution in ECEF Mps: "
-//                        + positionVelocitySolutionEcef[4]
-//                        + " "
-//                        + positionVelocitySolutionEcef[5]
-//                        + " "
-//                        + positionVelocitySolutionEcef[6]);
-//        Log.d(TAG, "Estimated Receiver clock offset rate in mps: " + positionVelocitySolutionEcef[7]);
     }
 
     /**

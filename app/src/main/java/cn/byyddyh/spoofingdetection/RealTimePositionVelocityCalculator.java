@@ -246,59 +246,56 @@ public class RealTimePositionVelocityCalculator {
         mAllowShowingRawResults = true;
 
         final Runnable r =
-                new Runnable() {
-                    @Override
-                    public void run() {
-                        mMainActivity.runOnUiThread(
-                                () -> {
+                () -> {
+                    mMainActivity.runOnUiThread(
+                            () -> {
 //                                        mPlotFragment.updateCnoTab(event);
-                                });
-                        if (mPseudorangePositionVelocityFromRealTimeEvents == null) {
-                            return;
-                        }
-                        try {
-                            if (mResidualPlotStatus != RESIDUAL_MODE_DISABLED
-                                    && mResidualPlotStatus != RESIDUAL_MODE_AT_INPUT_LOCATION) {
-                                // The position at last epoch is used for the residual analysis.
-                                // This is happening by updating the ground truth for pseudorange before using the
-                                // new arriving pseudoranges to compute a new position.
-                                mPseudorangePositionVelocityFromRealTimeEvents
-                                        .setCorrectedResidualComputationTruthLocationLla(mGroundTruth);
-                            }
+                            });
+                    if (mPseudorangePositionVelocityFromRealTimeEvents == null) {
+                        return;
+                    }
+                    try {
+                        if (mResidualPlotStatus != RESIDUAL_MODE_DISABLED
+                                && mResidualPlotStatus != RESIDUAL_MODE_AT_INPUT_LOCATION) {
+                            // The position at last epoch is used for the residual analysis.
+                            // This is happening by updating the ground truth for pseudorange before using the
+                            // new arriving pseudoranges to compute a new position.
                             mPseudorangePositionVelocityFromRealTimeEvents
-                                    .computePositionVelocitySolutionsFromRawMeas(event);
-                            // Running on main thread instead of in parallel will improve the thread safety
-                            if (mResidualPlotStatus != RESIDUAL_MODE_DISABLED) {
-                                mMainActivity.runOnUiThread(
-                                        new Runnable() {
-                                            @Override
-                                            public void run() {
+                                    .setCorrectedResidualComputationTruthLocationLla(mGroundTruth);
+                        }
+                        mPseudorangePositionVelocityFromRealTimeEvents
+                                .computePositionVelocitySolutionsFromRawMeas(event);
+                        // Running on main thread instead of in parallel will improve the thread safety
+                        if (mResidualPlotStatus != RESIDUAL_MODE_DISABLED) {
+                            mMainActivity.runOnUiThread(
+                                    new Runnable() {
+                                        @Override
+                                        public void run() {
 //                                                mPlotFragment.updatePseudorangeResidualTab(
 //                                                        mPseudorangePositionVelocityFromRealTimeEvents
 //                                                                .getPseudorangeResidualsMeters(),
 //                                                        TimeUnit.NANOSECONDS.toSeconds(
 //                                                                event.getClock().getTimeNanos()));
-                                            }
                                         }
-                                );
-                            } else {
-                                mMainActivity.runOnUiThread(
-                                        new Runnable() {
-                                            @Override
-                                            public void run() {
-                                                // Here we create gaps when the residual plot is disabled
+                                    }
+                            );
+                        } else {
+                            mMainActivity.runOnUiThread(
+                                    new Runnable() {
+                                        @Override
+                                        public void run() {
+                                            // Here we create gaps when the residual plot is disabled
 //                                                mPlotFragment.updatePseudorangeResidualTab(
 //                                                        GpsMathOperations.createAndFillArray(
 //                                                                GpsNavigationMessageStore.MAX_NUMBER_OF_SATELLITES, Double.NaN),
 //                                                        TimeUnit.NANOSECONDS.toSeconds(
 //                                                                event.getClock().getTimeNanos()));
-                                            }
                                         }
-                                );
-                            }
-                        } catch (Exception e) {
-                            e.printStackTrace();
+                                    }
+                            );
                         }
+                    } catch (Exception e) {
+                        e.printStackTrace();
                     }
                 };
         mMyPositionVelocityCalculationHandler.post(r);

@@ -19,8 +19,13 @@ import androidx.fragment.app.Fragment;
 
 import java.net.SocketException;
 
-public class SettingsFragment extends Fragment {
+import cn.byyddyh.spoofingdetection.sockets.NetworkUtils;
+import cn.byyddyh.spoofingdetection.sockets.SocketClient;
+import cn.byyddyh.spoofingdetection.sockets.SocketServer;
 
+public class SettingsFragment extends Fragment {
+    // 判断是否建立链接
+    public boolean isConnected = false;
     Button singleSettings;
     Button multipleSettings;
     Button endSettings;
@@ -31,11 +36,13 @@ public class SettingsFragment extends Fragment {
     EditText lat;
     EditText lon;
     EditText alt;
-    EditText neigh1;
-    EditText neigh2;
+    EditText serverIp;
+    public SocketServer server;
+    public SocketClient client;
     public static double latitude;
     public static double longitude;
-    private String nasa_uri = "https://cddis.nasa.gov/archive/gnss/data/hourly/";
+    private final String nasa_uri = "https://cddis.nasa.gov/archive/gnss/data/hourly/";
+
     @SuppressLint("MissingInflatedId")
     @Nullable
     @Override
@@ -52,6 +59,7 @@ public class SettingsFragment extends Fragment {
         alt = inflate.findViewById(R.id.Alt);
         ipGenerate = inflate.findViewById(R.id.ipGenerate);
         ipBinding = inflate.findViewById(R.id.ip_binding);
+        serverIp = inflate.findViewById(R.id.serverIp);
 
         singleSettings.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -83,15 +91,31 @@ public class SettingsFragment extends Fragment {
             }
         });
 
-        ipGenerate.setOnClickListener(new View.OnClickListener() {
+        ipGenerate.setOnClickListener(v -> {
+            try {
+                // 注册服务器
+                String ipAddress = NetworkUtils.getLocalIPAddress();
+                server = new SocketServer(8899);
+                /*socket服务端开始监听*/
+                server.beginListen();
+                Toast.makeText(requireActivity().getApplicationContext(), "ip:\t" + ipAddress + "\t, 服务器开启", Toast.LENGTH_SHORT).show();
+                isConnected = true;
+            } catch (SocketException e) {
+                throw new RuntimeException(e);
+            }
+        });
+
+        ipBinding.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                try {
-                    String ipAddress = NetworkUtils.getLocalIPAddress();
-                    Toast.makeText(requireActivity().getApplicationContext(), "ip:\t" + ipAddress, Toast.LENGTH_SHORT).show();
-                } catch (SocketException e) {
-                    throw new RuntimeException(e);
-                }
+                String serverIpAddress = serverIp.getText().toString();
+                client = new SocketClient();
+                //服务端的IP地址和端口号
+                client.clintValue(requireActivity(), serverIpAddress, 8899);
+                //开启客户端接收消息线程
+                client.openClientThread();
+                Toast.makeText(requireActivity().getApplicationContext(), "链接已建立", Toast.LENGTH_SHORT).show();
+                isConnected = true;
             }
         });
 

@@ -1,10 +1,5 @@
 package cn.byyddyh.spoofingdetection;
 
-import androidx.annotation.NonNull;
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
-import androidx.fragment.app.Fragment;
-
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.content.Context;
@@ -25,12 +20,17 @@ import android.os.Environment;
 import android.provider.Settings;
 import android.util.Log;
 
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.fragment.app.Fragment;
+
 import com.amap.api.location.AMapLocationClient;
 import com.amap.api.maps.MapsInitializer;
 import com.amap.api.services.core.ServiceSettings;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 
-import java.util.Random;
+import java.util.Arrays;
 
 import cn.byyddyh.spoofingdetection.pseudorange.Ecef2EnuConverter;
 import cn.byyddyh.spoofingdetection.pseudorange.Ecef2LlaConverter;
@@ -60,7 +60,6 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
     public static LocationManager mLocationmanager;
     public static boolean ephemerisFlag = true;
     private GnssMeasurementsEvent.Callback gnssMeasurementsEventListener;
-    private GnssNavigationMessage.Callback gnssNavigationMessageListener;
 
     static {
         settingsFragment = new SettingsFragment();
@@ -73,6 +72,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
 
     public static RealTimePositionVelocityCalculator mRealTimePositionVelocityCalculator;
 
+    @SuppressLint("NonConstantResourceId")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -113,13 +113,11 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
                     break;
             }
 
+            assert fragment != null;
             getSupportFragmentManager().beginTransaction().replace(R.id.fragmentContainer, fragment).commit();
 
             return true;
         });
-
-        Intent intent = new Intent(this, MyService.class);
-        startService(intent);
 
         // 获取传感器对象
         mSensor_Toggle = (SensorManager) getSystemService(SENSOR_SERVICE);
@@ -130,7 +128,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
         initCalculator();
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            gnssNavigationMessageListener = new GnssNavigationMessage.Callback() {
+            GnssNavigationMessage.Callback gnssNavigationMessageListener = new GnssNavigationMessage.Callback() {
                 @Override
                 public void onGnssNavigationMessageReceived(GnssNavigationMessage event) {
                     mRealTimePositionVelocityCalculator.onGnssNavigationMessageReceived(event);
@@ -143,6 +141,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
                 @Override
                 public void onGnssMeasurementsReceived(GnssMeasurementsEvent eventArgs) {
                     mRealTimePositionVelocityCalculator.onGnssMeasurementsReceived(eventArgs);
+                    fileLogger.writeGnssMeasurementData(eventArgs);
                 }
             };
         }
@@ -179,8 +178,6 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
         mapFragment.destroy();
     }
 
-    private boolean isRefuse;
-
     /**
      * 带回授权结果
      */
@@ -190,10 +187,8 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
         if (requestCode == 1024 && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             // 检查是否有权限
             if (Environment.isExternalStorageManager()) {
-                isRefuse = false;
                 // 授权成功
             } else {
-                isRefuse = true;
                 // 授权失败
             }
         }
@@ -258,8 +253,17 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
                     }
 
                     display_count++;
-                    if (display_count == 10) {
-                        display_count = 0;
+                    if (display_count % 10 == 0) {
+                        if (display_count % 200 == 0) {
+                            if (settingsFragment.isConnected) {
+                                Log.d("发送数据", "this");
+                                settingsFragment.client.sendMsg("IMU_data:\t"
+                                        + Arrays.toString(mLin_Acc_Buffer) + "\t"
+                                        + Arrays.toString(vel_mea) + "\t"
+                                        + Arrays.toString(pos_mea));
+                            }
+                            display_count = 0;
+                        }
                         logFragment.setAccView(mLin_Acc_Buffer);
                         logFragment.setVelView(vel_mea);
                         logFragment.setPosView(pos_mea, 1);
@@ -273,32 +277,10 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
     public static My_Software_SensorListener mySoftwareSensorListener = new My_Software_SensorListener();
 
     public static void start_Software_Sensors() {
-        try {
-            mSensor_Stream.registerListener(mySoftwareSensorListener,
-                    mSensor_Stream.getDefaultSensor(Sensor.TYPE_ORIENTATION), SensorManager.SENSOR_DELAY_NORMAL);
-        } catch (Exception e) {
-            e.printStackTrace();
-            return;
-        }
 
         try {
             mSensor_Stream.registerListener(mySoftwareSensorListener,
                     mSensor_Stream.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION), SensorManager.SENSOR_DELAY_FASTEST);
-        } catch (Exception e) {
-            e.printStackTrace();
-            return;
-        }
-
-        try {
-            mSensor_Stream.registerListener(mySoftwareSensorListener,
-                    mSensor_Stream.getDefaultSensor(Sensor.TYPE_GRAVITY), SensorManager.SENSOR_DELAY_NORMAL);
-        } catch (Exception e) {
-            e.printStackTrace();
-            return;
-        }
-        try {
-            mSensor_Stream.registerListener(mySoftwareSensorListener,
-                    mSensor_Stream.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR), SensorManager.SENSOR_DELAY_NORMAL);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -312,9 +294,9 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
     }
 
     private int init_gps_count = 0;
-    private int init_gps_len = 5;
     private int gps_count = 0;
     public static double[] reference_radians_mea = new double[3];        // 接收机位置的平均值
+    public static double[] reference_degree_mea = new double[3];        // 接收机位置的平均值
     public static double[] init_ecef_Meters;        // 接收机位置的平均值
     public static Ecef2EnuConverter.EnuValues enuValues;        // 接收机位置的平均值
     private boolean isPosSettings = false;
@@ -326,13 +308,16 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
     public void onLocationChanged(@NonNull Location location) {
         llaMeasure[0] = location.getLatitude();
         llaMeasure[1] = location.getLongitude();
-//        mapFragment.addMarker(location.getLatitude() , location.getLongitude());
 
+        int init_gps_len = 5;
         if (init_gps_count >= init_gps_len) {
             int gps_len = 10;
             if (gps_count >= gps_len) {
                 if (!isPosSettings) {
                     isPosSettings = true;
+                    reference_degree_mea[0] = location.getLatitude();
+                    reference_degree_mea[1] = location.getLongitude();
+                    reference_degree_mea[2] = location.getAltitude();
                     reference_radians_mea[0] = Math.toRadians(location.getLatitude());
                     reference_radians_mea[1] = Math.toRadians(location.getLongitude());
                     reference_radians_mea[2] = location.getAltitude();

@@ -3,10 +3,8 @@ package cn.byyddyh.spoofingdetection;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.os.Bundle;
-import android.preference.PreferenceManager;
 import android.text.Editable;
 import android.text.SpannableStringBuilder;
 import android.text.style.ForegroundColorSpan;
@@ -49,8 +47,6 @@ public class LogFragment extends Fragment {
      * 文件写入标志位
      */
     public static boolean writableFlag = false;
-
-    int count = 0;
     @SuppressLint("MissingInflatedId")
     @Nullable
     @Override

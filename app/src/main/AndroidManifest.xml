@@ -67,8 +67,6 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <service android:name=".MyService"/>
-        <receiver android:name=".AutoUpdateReceiver"/>
     </application>
 
 </manifest>

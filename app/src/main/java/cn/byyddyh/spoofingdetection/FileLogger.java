@@ -3,11 +3,15 @@ package cn.byyddyh.spoofingdetection;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.Intent;
+import android.location.GnssClock;
+import android.location.GnssMeasurement;
+import android.location.GnssMeasurementsEvent;
 import android.location.GnssNavigationMessage;
 import android.location.Location;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
+import android.os.SystemClock;
 import android.util.Log;
 import android.widget.Toast;
 
@@ -163,6 +167,81 @@ public class FileLogger {
                     existingFiles[i].delete();
                 }
             }
+        }
+    }
+
+    public void writeGnssMeasurementData(GnssMeasurementsEvent event) {
+        synchronized (mFileLock) {
+            if (mFileWriter == null) {
+                return;
+            }
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+                GnssClock gnssClock  = event.getClock();
+
+                for (GnssMeasurement measurement : event.getMeasurements()) {
+                    try {
+                        /*写入到文件中*/
+                        writeGnssMeasurementToFile(gnssClock, measurement);
+                    } catch (IOException e) {
+                        logException(ERROR_WRITING_FILE, e);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * 将GNSS测量值记录到日志文件中
+     */
+    private void writeGnssMeasurementToFile(GnssClock clock, GnssMeasurement measurement)
+            throws IOException {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+            String clockStream =
+                    String.format(
+                            "Raw,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s",
+                            SystemClock.elapsedRealtime(),
+                            clock.getTimeNanos(),
+                            clock.hasLeapSecond() ? clock.getLeapSecond() : "",
+                            clock.hasTimeUncertaintyNanos() ? clock.getTimeUncertaintyNanos() : "",
+                            clock.getFullBiasNanos(),
+                            clock.hasBiasNanos() ? clock.getBiasNanos() : "",
+                            clock.hasBiasUncertaintyNanos() ? clock.getBiasUncertaintyNanos() : "",
+                            clock.hasDriftNanosPerSecond() ? clock.getDriftNanosPerSecond() : "",
+                            clock.hasDriftUncertaintyNanosPerSecond()
+                                    ? clock.getDriftUncertaintyNanosPerSecond()
+                                    : "",
+                            clock.getHardwareClockDiscontinuityCount() + ",");
+            mFileWriter.write(clockStream);
+
+            String measurementStream =
+                    String.format(
+                            "%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s",
+                            measurement.getSvid(),
+                            measurement.getTimeOffsetNanos(),
+                            measurement.getState(),
+                            measurement.getReceivedSvTimeNanos(),
+                            measurement.getReceivedSvTimeUncertaintyNanos(),
+                            measurement.getCn0DbHz(),
+                            measurement.getPseudorangeRateMetersPerSecond(),
+                            measurement.getPseudorangeRateUncertaintyMetersPerSecond(),
+                            measurement.getAccumulatedDeltaRangeState(),
+                            measurement.getAccumulatedDeltaRangeMeters(),
+                            measurement.getAccumulatedDeltaRangeUncertaintyMeters(),
+                            measurement.hasCarrierFrequencyHz() ? measurement.getCarrierFrequencyHz() : "",
+                            measurement.hasCarrierCycles() ? measurement.getCarrierCycles() : "",
+                            measurement.hasCarrierPhase() ? measurement.getCarrierPhase() : "",
+                            measurement.hasCarrierPhaseUncertainty()
+                                    ? measurement.getCarrierPhaseUncertainty()
+                                    : "",
+                            measurement.getMultipathIndicator(),
+                            measurement.hasSnrInDb() ? measurement.getSnrInDb() : "",
+                            measurement.getConstellationType(),
+                            Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+                                    && measurement.hasAutomaticGainControlLevelDb()
+                                    ? measurement.getAutomaticGainControlLevelDb()
+                                    : "");
+            mFileWriter.write(measurementStream);
+            mFileWriter.newLine();
         }
     }
 

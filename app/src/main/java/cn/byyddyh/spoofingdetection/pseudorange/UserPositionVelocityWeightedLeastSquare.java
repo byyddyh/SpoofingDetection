@@ -204,8 +204,7 @@ class UserPositionVelocityWeightedLeastSquare {
         SatellitesPositionPseudorangesResidualAndCovarianceMatrix satPosPseudorangeResidualAndWeight;
         boolean isFirstWLS = true;
 
-//        Log.d("GNSS pseudorange Meters before", String.valueOf(1));
-        // TODO 需要更改为测量更新值
+        // TODO
         double[] receiverEcefData = Lla2EcefConverter.convertFromLlaToEcefMeters(new Ecef2LlaConverter.GeodeticLlaValues(
                 MainActivity.reference_radians_mea[0],
                 MainActivity.reference_radians_mea[1],

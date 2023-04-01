@@ -1,4 +1,4 @@
-package cn.byyddyh.spoofingdetection;
+package cn.byyddyh.spoofingdetection.sockets;
 
 import java.net.Inet4Address;
 import java.net.InetAddress;
